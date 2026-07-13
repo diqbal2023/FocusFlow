@@ -40,6 +40,7 @@ export function Sidebar({activeScreen, onSelect}: SidebarProps) {
           return (
             <Pressable
               key={item.id}
+              testID={`nav-${item.id}`}
               accessibilityRole="button"
               accessibilityState={{selected: isActive}}
               onPress={() => onSelect(item.id)}
