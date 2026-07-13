@@ -1,3 +1,1 @@
-module.exports = {
-  preset: '@react-native/jest-preset',
-};
+module.exports = require('./jest.config.windows.js');
