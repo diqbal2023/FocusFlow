@@ -1,12 +1,20 @@
 import {StyleSheet, Text, View} from 'react-native';
+import {AppCard} from '../components/AppCard';
+import {PageHeader} from '../components/PageHeader';
+import {colors} from '../constants/colors';
+import {spacing} from '../constants/spacing';
+import {typography} from '../constants/typography';
 
 export function GoalsScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Goals</Text>
-      <Text style={styles.subtitle}>
-        Set and track your long-term productivity goals.
-      </Text>
+      <PageHeader
+        title="Goals"
+        subtitle="Set and monitor productivity goals."
+      />
+      <AppCard>
+        <Text style={styles.cardText}>Your goals will appear here.</Text>
+      </AppCard>
     </View>
   );
 }
@@ -14,17 +22,11 @@ export function GoalsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 32,
+    padding: spacing.xxl,
+    backgroundColor: colors.surfaceMuted,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    lineHeight: 24,
+  cardText: {
+    ...typography.body,
+    color: colors.textSecondary,
   },
 });

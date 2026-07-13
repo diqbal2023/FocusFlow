@@ -1,12 +1,22 @@
 import {StyleSheet, Text, View} from 'react-native';
+import {AppCard} from '../components/AppCard';
+import {PageHeader} from '../components/PageHeader';
+import {colors} from '../constants/colors';
+import {spacing} from '../constants/spacing';
+import {typography} from '../constants/typography';
 
 export function SettingsScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Settings</Text>
-      <Text style={styles.subtitle}>
-        Customize FocusFlow to match your workflow.
-      </Text>
+      <PageHeader
+        title="Settings"
+        subtitle="Customize your FocusFlow experience."
+      />
+      <AppCard>
+        <Text style={styles.cardText}>
+          Application settings will appear here.
+        </Text>
+      </AppCard>
     </View>
   );
 }
@@ -14,17 +24,11 @@ export function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 32,
+    padding: spacing.xxl,
+    backgroundColor: colors.surfaceMuted,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    lineHeight: 24,
+  cardText: {
+    ...typography.body,
+    color: colors.textSecondary,
   },
 });

@@ -1,12 +1,20 @@
 import {StyleSheet, Text, View} from 'react-native';
+import {AppCard} from '../components/AppCard';
+import {PageHeader} from '../components/PageHeader';
+import {colors} from '../constants/colors';
+import {spacing} from '../constants/spacing';
+import {typography} from '../constants/typography';
 
 export function TasksScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tasks</Text>
-      <Text style={styles.subtitle}>
-        Manage your tasks and priorities here.
-      </Text>
+      <PageHeader
+        title="Tasks"
+        subtitle="Organize and track your work."
+      />
+      <AppCard>
+        <Text style={styles.cardText}>No tasks yet.</Text>
+      </AppCard>
     </View>
   );
 }
@@ -14,17 +22,11 @@ export function TasksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 32,
+    padding: spacing.xxl,
+    backgroundColor: colors.surfaceMuted,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    lineHeight: 24,
+  cardText: {
+    ...typography.body,
+    color: colors.textSecondary,
   },
 });

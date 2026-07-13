@@ -16,9 +16,7 @@ describe('FocusFlow navigation shell', () => {
   it('TC_NAV_01 displays the Tasks screen by default', () => {
     render(<App />);
 
-    expect(
-      screen.getByText('Manage your tasks and priorities here.'),
-    ).toBeTruthy();
+    expect(screen.getByText('Organize and track your work.')).toBeTruthy();
     expectNavSelected('nav-tasks', true);
   });
 
@@ -28,11 +26,9 @@ describe('FocusFlow navigation shell', () => {
     fireEvent.press(screen.getByTestId('nav-focus'));
 
     expect(
-      screen.getByText('Start focused work sessions without distractions.'),
+      screen.getByText('Stay focused with timed work sessions.'),
     ).toBeTruthy();
-    expect(
-      screen.queryByText('Manage your tasks and priorities here.'),
-    ).toBeNull();
+    expect(screen.queryByText('Organize and track your work.')).toBeNull();
   });
 
   it('TC_NAV_03 selecting Statistics displays the Statistics screen', () => {
@@ -41,11 +37,9 @@ describe('FocusFlow navigation shell', () => {
     fireEvent.press(screen.getByTestId('nav-statistics'));
 
     expect(
-      screen.getByText('Review your productivity trends and progress.'),
+      screen.getByText('Review your productivity patterns.'),
     ).toBeTruthy();
-    expect(
-      screen.queryByText('Manage your tasks and priorities here.'),
-    ).toBeNull();
+    expect(screen.queryByText('Organize and track your work.')).toBeNull();
   });
 
   it('TC_NAV_04 selecting Goals displays the Goals screen', () => {
@@ -54,13 +48,9 @@ describe('FocusFlow navigation shell', () => {
     fireEvent.press(screen.getByTestId('nav-goals'));
 
     expect(
-      screen.getByText(
-        'Set and track your long-term productivity goals.',
-      ),
+      screen.getByText('Set and monitor productivity goals.'),
     ).toBeTruthy();
-    expect(
-      screen.queryByText('Manage your tasks and priorities here.'),
-    ).toBeNull();
+    expect(screen.queryByText('Organize and track your work.')).toBeNull();
   });
 
   it('TC_NAV_05 selecting Settings displays the Settings screen', () => {
@@ -69,11 +59,9 @@ describe('FocusFlow navigation shell', () => {
     fireEvent.press(screen.getByTestId('nav-settings'));
 
     expect(
-      screen.getByText('Customize FocusFlow to match your workflow.'),
+      screen.getByText('Customize your FocusFlow experience.'),
     ).toBeTruthy();
-    expect(
-      screen.queryByText('Manage your tasks and priorities here.'),
-    ).toBeNull();
+    expect(screen.queryByText('Organize and track your work.')).toBeNull();
   });
 
   it('TC_NAV_06 marks the selected sidebar item as active', () => {

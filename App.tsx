@@ -8,6 +8,7 @@ import {useState} from 'react';
 import {StatusBar, StyleSheet, View} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {Sidebar, type ScreenId} from './src/components/Sidebar';
+import {colors} from './src/constants/colors';
 import {FocusScreen} from './src/screens/FocusScreen';
 import {GoalsScreen} from './src/screens/GoalsScreen';
 import {SettingsScreen} from './src/screens/SettingsScreen';
@@ -28,7 +29,7 @@ function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="dark-content" backgroundColor="#F3F4F6" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       <View style={styles.app}>
         <Sidebar activeScreen={activeScreen} onSelect={setActiveScreen} />
         <View style={styles.main}>
@@ -44,12 +45,12 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     minHeight: 768,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.background,
   },
   main: {
     flex: 1,
     minWidth: 784,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
 });
 

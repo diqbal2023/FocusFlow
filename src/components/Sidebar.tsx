@@ -1,4 +1,7 @@
 import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {colors} from '../constants/colors';
+import {spacing} from '../constants/spacing';
+import {typography} from '../constants/typography';
 
 export type ScreenId =
   | 'tasks'
@@ -65,48 +68,45 @@ const styles = StyleSheet.create({
   sidebar: {
     width: 240,
     minWidth: 240,
-    backgroundColor: '#1F2937',
+    backgroundColor: colors.sidebarBackground,
     borderRightWidth: 1,
-    borderRightColor: '#374151',
-    paddingTop: 24,
-    paddingHorizontal: 12,
+    borderRightColor: colors.sidebarBorder,
+    paddingTop: spacing.xl,
+    paddingHorizontal: spacing.md,
   },
   header: {
-    paddingHorizontal: 12,
-    marginBottom: 24,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.xl,
   },
   appName: {
-    color: '#F9FAFB',
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 4,
+    ...typography.appTitle,
+    color: colors.sidebarTextActive,
+    marginBottom: spacing.xs,
   },
   appTagline: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    lineHeight: 18,
+    ...typography.caption,
+    color: colors.sidebarTextMuted,
   },
   nav: {
-    gap: 4,
+    gap: spacing.xs,
   },
   navItem: {
     borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   navItemActive: {
-    backgroundColor: '#2563EB',
+    backgroundColor: colors.sidebarItemActive,
   },
   navItemPressed: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.sidebarItemPressed,
   },
   navLabel: {
-    color: '#D1D5DB',
-    fontSize: 15,
-    fontWeight: '500',
+    ...typography.bodyMedium,
+    color: colors.sidebarText,
   },
   navLabelActive: {
-    color: '#FFFFFF',
+    color: colors.sidebarTextActive,
     fontWeight: '600',
   },
 });

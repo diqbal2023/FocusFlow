@@ -1,12 +1,22 @@
 import {StyleSheet, Text, View} from 'react-native';
+import {AppCard} from '../components/AppCard';
+import {PageHeader} from '../components/PageHeader';
+import {colors} from '../constants/colors';
+import {spacing} from '../constants/spacing';
+import {typography} from '../constants/typography';
 
 export function StatisticsScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Statistics</Text>
-      <Text style={styles.subtitle}>
-        Review your productivity trends and progress.
-      </Text>
+      <PageHeader
+        title="Statistics"
+        subtitle="Review your productivity patterns."
+      />
+      <AppCard>
+        <Text style={styles.cardText}>
+          Productivity statistics will appear here.
+        </Text>
+      </AppCard>
     </View>
   );
 }
@@ -14,17 +24,11 @@ export function StatisticsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 32,
+    padding: spacing.xxl,
+    backgroundColor: colors.surfaceMuted,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    lineHeight: 24,
+  cardText: {
+    ...typography.body,
+    color: colors.textSecondary,
   },
 });
