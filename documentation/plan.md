@@ -295,7 +295,7 @@ For every stage, follow this workflow:
 
 ### Stage 9 — SQLite repository
 
-- **Status:** Not Started
+- **Status:** Next
 - **Objective:** Add permanent local task storage.
 - **Main implementation work:**
   - Database initialization

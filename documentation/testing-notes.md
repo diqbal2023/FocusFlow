@@ -5,12 +5,12 @@ Working notes for the IEEE Software Test Document.
 
 | Field | Value |
 |---|---|
-| Last updated | 2026-07-14 |
-| Current stage covered | Stages 1–7 (through TaskManager refactor) |
-| Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx`, `__tests__/TaskValidation.test.ts` |
+| Last updated | 2026-07-14 (Stage 8 TaskManager unit tests) |
+| Current stage covered | Stages 1–8 (through TaskManager unit tests) |
+| Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx`, `__tests__/TaskValidation.test.ts`, `__tests__/TaskManager.test.ts`, `__tests__/TaskManager.trash.test.ts` |
 | Primary command | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
 | Alternate command | `npm test` |
-| Latest result | 4 suites / 25 tests passed / 0 failed / 0 snapshots |
+| Latest result | 6 suites / 42 tests passed / 0 failed / 0 snapshots |
 | Results log | `test-results.txt` (project root) |
 
 ## How to update this file
@@ -30,7 +30,8 @@ Working notes for the IEEE Software Test Document.
 | 5 | Task UI (temporary React state) + interaction tests | Complete / passing |
 | 6 | Task validation module + validation / form tests | Complete / passing |
 | 7 | TaskManager refactor (business logic layer) | Complete / regression green |
-| 8+ | TaskManager unit tests, SQLite, etc. | Not started |
+| 8 | TaskManager unit tests (TC_TASK_MGR + trash suite) | Complete / passing |
+| 9+ | SQLite repository, timer, goals, etc. | Not started |
 
 ---
 
@@ -254,13 +255,13 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 
 | Metric | Value |
 |---|---|
-| Total Test Suites | 4 |
-| Total Test Cases | 25 |
-| Passed | 25 |
+| Total Test Suites | 6 |
+| Total Test Cases | 42 |
+| Passed | 42 |
 | Failed | 0 |
 | Pass Percentage | 100% |
 | Snapshots | 0 |
-| Overall System Status (tested scope) | Stages 1–7 green; TaskManager refactor preserved all 25 existing automated tests; Stage 8 (TaskManager unit tests) not started |
+| Overall System Status (tested scope) | Stages 1–8 green; TaskManager unit tests + prior suites pass; Stage 9 (SQLite repository) not started |
 
 ### Suite map
 
@@ -268,8 +269,10 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 |---|---|---|
 | FocusFlow shared UI components | `__tests__/SharedComponents.test.tsx` | TC_UI_01–05 |
 | FocusFlow navigation shell | `__tests__/App.test.tsx` | TC_NAV_01–06 |
-| Tasks screen temporary UI state | `__tests__/TasksScreen.test.tsx` | TC_TASK_UI_01–05, TC_TASK_FORM_01 |
+| Tasks screen temporary UI state | `__tests__/TasksScreen.test.tsx` | TC_TASK_UI_01–07, TC_TASK_FORM_01 |
 | Task validation | `__tests__/TaskValidation.test.ts` | TC_TASK_VAL_01–08 |
+| TaskManager unit tests | `__tests__/TaskManager.test.ts` | TC_TASK_MGR_01–10 |
+| TaskManager Recently Deleted | `__tests__/TaskManager.trash.test.ts` | TC_TASK_TRASH_01–05 |
 
 ### Stage 6 quick reference
 
@@ -296,3 +299,169 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Defects encountered during refactoring | None |
 | Fixes applied | No corrective fixes required |
 | Overall stage status | Stage 7 complete and stable; ready for Stage 8 (TaskManager unit tests). Still using temporary React state (no SQLite yet). |
+
+---
+
+## Stage 8 - TaskManager Unit Tests
+
+### 1. Stage
+- Stage 8
+
+### 2. Feature tested
+- TaskManager business logic
+
+### 3. Test scope
+- Task creation
+- Validation handling through `createTask` / `updateTask`
+- Task editing and ID preservation
+- Completion behavior via `completeTask` / `advanceTaskStatus`
+- Soft-deletion via `moveToTrash` (no hard `deleteTask` method exists)
+- Label preservation (comma-separated string storage after sanitization)
+- Maximum 10-label rule enforced through TaskManager + validation
+- Collection immutability for create/update/complete/trash mutations
+- Lookup via `getTaskById`
+- `prepareTaskForEditing` field mapping used during edit coverage
+
+### 4. Test objectives
+- Verify task business logic independently of the UI
+- Verify Stage 7 refactoring did not change expected behavior
+- Verify label handling is preserved through create/update
+- Confirm existing application tests continue to pass
+
+### 5. Actual TaskManager API
+Public methods covered by Stage 8 TC_TASK_MGR tests:
+- `createTask`
+- `updateTask`
+- `prepareTaskForEditing`
+- `completeTask`
+- `moveToTrash`
+- `getTaskById`
+
+Related methods already covered by `__tests__/TaskManager.trash.test.ts` (kept as-is):
+- `restoreTask`
+- `permanentlyDeleteTask`
+- `purgeExpiredDeletedTasks`
+- `getDaysRemainingInTrash`
+
+Other public methods present but not expanded in TC_TASK_MGR_01–10 (still exercised elsewhere or unused by Stage 8 focus):
+- `getInitialTasks`
+- `clearFormData`
+- `sortTasks`
+- `filterTasks`
+- `advanceTaskStatus` (aliased by `completeTask`)
+
+### 6. Files tested
+- `src/managers/TaskManager.ts`
+- `src/types/task.ts`
+- `src/utils/taskValidation.ts` (invoked by TaskManager; not re-tested in depth)
+- `__tests__/TaskManager.test.ts` (new)
+- Existing regression suites remain green
+
+### 7. Testing tools
+- Jest
+- TypeScript
+- React Native for Windows Jest configuration (`jest.config.windows.js`)
+
+### 8. Exact command used
+```
+npm run test:windows -- --verbose > test-results.txt 2>&1
+```
+
+### 9. Test cases added
+
+| ID | Name |
+|---|---|
+| TC_TASK_MGR_01 | Creates a valid task and adds it to the collection |
+| TC_TASK_MGR_02 | Rejects invalid task input or returns the appropriate validation failure |
+| TC_TASK_MGR_03 | Updates an existing task while preserving its task ID |
+| TC_TASK_MGR_04 | Preserves task fields during editing, including status, priority, due date, estimated duration, description, and labels |
+| TC_TASK_MGR_05 | Preserves up to 10 task labels during create and edit operations |
+| TC_TASK_MGR_06 | Does not allow more than 10 labels after sanitization or validation |
+| TC_TASK_MGR_07 | Marks a task as completed without modifying unrelated task fields |
+| TC_TASK_MGR_08 | Deletes the selected task without altering unrelated tasks (soft-delete via moveToTrash) |
+| TC_TASK_MGR_09 | Returns or identifies the correct task by ID |
+| TC_TASK_MGR_10 | Returns new arrays or objects instead of mutating the original task collection |
+
+### 10. Expected outcomes
+- Valid create prepends a Pending task and returns `success: true`
+- Invalid create returns `success: false`, unchanged collection reference, and validation errors
+- Update keeps the same task `id` and applies form fields
+- Edit preserves `status`; other editable fields follow prepared/updated form values
+- Exactly 10 labels are stored as a comma-separated string after create/update
+- More than 10 labels fails create/update with a labels error
+- Completing an In Progress task sets status to Completed only
+- Soft-delete moves only the selected task into trash with `deletedAt`
+- `getTaskById` returns the matching task or `undefined`
+- Mutations return new arrays/objects without mutating the original collection
+
+### 11. Actual outcomes
+- From `test-results.txt`: all TC_TASK_MGR_01–10 passed
+- Prior suites (navigation, shared UI, TasksScreen, validation, trash) remained passed
+
+### 12. Pass/fail status
+
+| Test | Status |
+|---|---|
+| TC_TASK_MGR_01 | Pass |
+| TC_TASK_MGR_02 | Pass |
+| TC_TASK_MGR_03 | Pass |
+| TC_TASK_MGR_04 | Pass |
+| TC_TASK_MGR_05 | Pass |
+| TC_TASK_MGR_06 | Pass |
+| TC_TASK_MGR_07 | Pass |
+| TC_TASK_MGR_08 | Pass |
+| TC_TASK_MGR_09 | Pass |
+| TC_TASK_MGR_10 | Pass |
+
+### 13. Defects found
+- None in TaskManager business logic during Stage 8
+- One test TypeScript issue: `structuredClone` was not recognized by the project TypeScript config; replaced with a shallow map copy in the test only
+
+### 14. Fixes made
+- Corrective product-code fixes: none required
+- Test fix: replaced `structuredClone` with `original.map(task => ({...task}))` in TC_TASK_MGR_10 so `tsc --noEmit` succeeds
+
+### 15. Final totals
+| Metric | Value |
+|---|---|
+| Test suites | 6 passed, 6 total |
+| Total tests | 42 |
+| Passed | 42 |
+| Failed | 0 |
+| Snapshots | 0 |
+
+### 16. Risks and contingencies
+- TaskManager still uses temporary in-memory data
+- Repository and SQLite behavior are not yet tested
+- Future persistence integration may expose new issues
+- Current tests do not verify app restart persistence
+- Native Windows behavior remains outside this stage
+- Trash retention / restore / permanent delete are covered in a separate suite (`TaskManager.trash.test.ts`) and UI tests, not fully duplicated in TC_TASK_MGR
+
+### 17. Pass/fail criteria
+- Pass: returned behavior matches the expected business rule and Jest assertion passes
+- Fail: returned behavior differs, input is improperly handled, mutation occurs unexpectedly, or the test suite cannot execute
+
+### 18. Overall stage status
+- TaskManager is stable and ready for SQLite repository work (Stage 9)
+- Stage 8 complete
+
+### 19. Features not yet tested
+- SQLite repository
+- Persistent storage
+- Parent/subtask completion business rules (not implemented in TaskManager yet)
+- Timer
+- Goals
+- Statistics
+- Settings persistence
+- Notifications
+- Windows-specific features
+- Final integration
+
+Notes on Stage 7 extras discovered while writing Stage 8:
+- Labels are sanitized to a `string[]` in validation, then stored on `Task` as a comma-separated `string` (`labelsToStorage`)
+- Delete is soft-delete (`moveToTrash`) with Recently Deleted restore / permanent delete / 30-day purge
+- Status flow is Pending → In Progress → Completed (`advanceTaskStatus` / `completeTask`)
+- Helper APIs exist: `sortTasks`, `filterTasks`, seed `getInitialTasks`, form helpers
+- `parentTaskId` is preserved as a string field; no subtask completion gating exists yet
+- Labels and parent/subtask relationships remain separate concepts |
