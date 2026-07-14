@@ -5,12 +5,12 @@ Working notes for the IEEE Software Test Document.
 
 | Field | Value |
 |---|---|
-| Last updated | 2026-07-14 (Stage 10 TaskRepository tests) |
-| Current stage covered | Stages 1–10 (through TaskRepository tests) |
-| Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx`, `__tests__/TaskValidation.test.ts`, `__tests__/TaskManager.test.ts`, `__tests__/TaskManager.trash.test.ts`, `__tests__/TaskRepository.test.ts` |
+| Last updated | 2026-07-14 (Stages 11–13 Focus Session / Timer + long-break counter fix) |
+| Current stage covered | Stages 1–13 (Focus Session UI, TimerService, SessionManager, timer/session tests) |
+| Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx`, `__tests__/TaskValidation.test.ts`, `__tests__/TaskManager.test.ts`, `__tests__/TaskManager.trash.test.ts`, `__tests__/TaskRepository.test.ts`, `__tests__/TimerService.test.ts`, `__tests__/SessionManager.test.ts` |
 | Primary command | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
 | Alternate command | `npm test` |
-| Latest result | 7 suites / 55 tests passed / 0 failed / 0 snapshots |
+| Latest result | 9 suites / 72 tests passed / 0 failed / 0 snapshots |
 | Results log | `test-results.txt` (project root) |
 
 ## How to update this file
@@ -33,7 +33,10 @@ Working notes for the IEEE Software Test Document.
 | 8 | TaskManager unit tests (TC_TASK_MGR + trash suite) | Complete / passing |
 | 9 | SQLite repository + task persistence | Complete / regression green |
 | 10 | TaskRepository unit tests | Complete / passing |
-| 11+ | Timer UI, goals, statistics, etc. | Not started |
+| 11 | Focus Session / Timer UI | Complete / passing |
+| 12 | TimerService + SessionManager | Complete / passing |
+| 13 | Timer / SessionManager Jest tests + long-break counter fix | Complete / passing |
+| 14+ | Goals, statistics, settings, etc. | Not started |
 
 ---
 
@@ -41,8 +44,8 @@ Working notes for the IEEE Software Test Document.
 
 - **Test Scope**
   - Automated Jest UI and unit tests for FocusFlow React Native for Windows (TypeScript)
-  - Covers: navigation shell, shared UI components, TasksScreen interactions, task validation, TaskManager business logic (including Recently Deleted), SqliteTaskRepository persistence behavior (via injected fake `DatabaseService`), and repository-related regressions for Stage 9 defects
-  - Does not cover as automated Jest: native turbo-sqlite engine I/O, Windows packaging/deploy, Timer/Goals/Statistics/Settings, notifications, export, authentication, cloud services
+  - Covers: navigation shell, shared UI components, TasksScreen interactions, task validation, TaskManager business logic (including Recently Deleted), SqliteTaskRepository persistence behavior (via injected fake `DatabaseService`), Focus Session / TimerService / SessionManager (timestamp timer + Pomodoro flow)
+  - Does not cover as automated Jest: native turbo-sqlite engine I/O, Windows packaging/deploy, Goals/Statistics/Settings, notifications, export, authentication, cloud services
 
 - **Test Objectives**
   - Verify default screen and sidebar navigation between 5 sections
@@ -51,15 +54,20 @@ Working notes for the IEEE Software Test Document.
   - Confirm invalid task input is rejected by `validateTaskInput` and through the TasksScreen save path
   - Confirm TaskManager validation, label limits, status advancement, soft-delete, and immutability behavior
   - Confirm SqliteTaskRepository initialize/CRUD/trash mapping uses parameterized SQL and typed Task rows
-  - Confirm prior application suites remain green after Stages 7–10 refactors
+  - Confirm TimerService timestamp countdown (start/pause/resume/reset/skip/accuracy)
+  - Confirm SessionManager Pomodoro transitions, counters, long-break cycle, and skip/interrupt rules
+  - Confirm prior application suites remain green after Stages 7–13 work
 
 - **Test Items**
   - `App.tsx` + `Sidebar`
   - `AppButton`, `AppInput`, `PageHeader`
   - `TasksScreen` (async TaskManager + repository-backed state)
+  - `FocusScreen` (presentation wired to SessionManager)
   - `src/utils/taskValidation.ts` (`validateTaskInput`, `sanitizeLabels`)
   - `src/types/task.ts`
   - `src/managers/TaskManager.ts`
+  - `src/managers/SessionManager.ts`
+  - `src/services/TimerService.ts`
   - `src/repositories/SqliteTaskRepository.ts`, `ITaskRepository.ts`, `InMemoryTaskRepository.ts`
   - `src/services/DatabaseService.ts`
   - `src/testing/FakeDatabaseService.ts` (Stage 10 test double)
@@ -72,13 +80,16 @@ Working notes for the IEEE Software Test Document.
   - TaskManager create/update/complete/trash/restore and label persistence rules
   - SqliteTaskRepository initialize, create, read, update, soft-delete, empty results, error paths, parameterized SQL
   - Stage 9 path-fallback and re-init regression checks (automatable subset)
+  - Focus Session timer controls and Pomodoro mode transitions (work / short break / long break)
+  - Completed-work and break counters; long-break after 4 completed work sessions; cycle reset after long break
+  - Skip does not count as completed work (documented decision)
 
 - **Features Not Yet Tested**
   - Native turbo-sqlite engine behavior inside Jest (suite uses fake/in-memory doubles)
   - Full manual UI click-path persistence checklist on every release
   - Schema migrations / corrupt-database recovery / large-dataset performance
   - Parent/subtask completion business rules (not implemented)
-  - Timer UI / TimerService / SessionManager
+  - Session persistence / SessionRepository
   - Goals / Statistics / Settings persistence
   - Notifications, system tray, export, authentication, cloud services
   - Visual style details (colors, spacing, fonts) as automated assertions
@@ -94,9 +105,9 @@ Working notes for the IEEE Software Test Document.
   - Jest config: `jest.config.js` → `jest.config.windows.js` (`@rnx-kit/jest-preset` windows) + `jest.setup.js`
 
 - **Testing Tools**
-  - Jest (`^29.6.3`)
+  - Jest (`^29.6.3`) including fake timers / system time for timer suites
   - `@testing-library/react-native` (`^13.3.3`) for UI/navigation/TasksScreen suites
-  - Direct unit tests for validation, TaskManager, and SqliteTaskRepository
+  - Direct unit tests for validation, TaskManager, SqliteTaskRepository, TimerService, SessionManager
   - `InMemoryTaskRepository` for TaskManager / UI Jest isolation
   - `FakeDatabaseService` for repository SQL/parameter and mapping tests
   - `fireEvent` / `waitFor` / `findBy*` for async TasksScreen tests
@@ -107,18 +118,20 @@ Working notes for the IEEE Software Test Document.
   - Future schema changes need migration tests and repository suite updates
   - Native deploy can fail if FocusFlow locks DLLs (see DEF-004)
   - PlatformToolset patch for turbo-sqlite (`postinstall`) must remain after reinstalls (DEF-006)
+  - Focus Session state is not persisted across app restart
+  - Full 25-minute UI wait for natural work completion is not part of routine manual checks; Jest covers natural completion / long-break paths with timestamps
   - If `npm test` preset breaks, use `npm run test:windows`
 
 - **Pass/Fail Criteria**
   - **Pass:** actual behavior matches expected behavior and the Jest assertion succeeds; suite exits 0
   - **Fail:** behavior differs from expected result, an assertion fails, or the test suite cannot execute
-  - **Stage gate (current):** Stages 1–10 green (`Failed Tests: 0`); Stage 11 (Timer UI) is next
+  - **Stage gate (current):** Stages 1–13 green (`Failed Tests: 0`); Stage 14 (Goals) is next
 
 ---
 
 ## 2. TEST CASE INFORMATION
 
-Primary case catalog for Stages 1–6 is below. Stages 7–10 case detail lives in the dedicated Stage 8 / Stage 9 / Stage 10 sections (TC_TASK_MGR_*, TC_TASK_TRASH_*, TC_TASK_REPO_*, TC_TASK_REPO_REG_*), and all current IDs are Pass in the latest `test-results.txt` run (55/55).
+Primary case catalog for Stages 1–6 is below. Stages 7–10 detail lives in the dedicated Stage 8 / 9 / 10 sections (TC_TASK_MGR_*, TC_TASK_TRASH_*, TC_TASK_REPO_*, TC_TASK_REPO_REG_*). Stages 11–13 (plus long-break counter fix) detail lives in **Stage 11–13** and the long-break fix section (TC_TIMER_*, TC_SESSION_*). All current IDs are Pass in the latest `test-results.txt` run (72/72).
 
 | Test Case ID | Objective | Input | Expected Output | Execution Steps | Actual Output | Pass/Fail |
 |---|---|---|---|---|---|---|
@@ -265,13 +278,15 @@ Detail for Stages 1–6 UI/validation cases appears below. Manager / repository 
 | TC_TASK_TRASH_01–05 | TaskManager trash tests | Pass | See trash suite / Stage 8 | N/A |
 | TC_TASK_REPO_01–10 | SqliteTaskRepository tests | Pass | See Stage 10 | N/A |
 | TC_TASK_REPO_REG_01–03 | Repository regressions | Pass | See Stage 10 | N/A |
+| TC_TIMER_01–08 | TimerService + session transitions | Pass | See Stage 11–13 | N/A |
+| TC_SESSION_01–09 | SessionManager counters / long break | Pass | See Stage 11–13 + long-break fix | N/A |
 
 ---
 
 ## 5. DEFECT TRACKING INFORMATION
 
-Latest automated product test run: **0 failed** (**7 suites / 55 tests passed**).  
-Stages 1–10: product defects found during Stages 9–10 are fixed (DEF-005–008). DEF-004 remains an open deploy workaround when the app locks DLLs.
+Latest automated product test run: **0 failed** (**9 suites / 72 tests passed**).  
+Stages 1–13: product defects found during Stages 9–10 are fixed (DEF-005–008). DEF-004 remains an open deploy workaround when the app locks DLLs. Focus Session counter/long-break follow-up is documented in the long-break fix section.
 
 Historical defects found during setup / earlier automated testing (and fixed) are logged below.
 
@@ -301,13 +316,13 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 
 | Metric | Value |
 |---|---|
-| Total Test Suites | 7 |
-| Total Test Cases | 55 |
-| Passed | 55 |
+| Total Test Suites | 9 |
+| Total Test Cases | 72 |
+| Passed | 72 |
 | Failed | 0 |
 | Pass Percentage | 100% |
 | Snapshots | 0 |
-| Overall System Status (tested scope) | Stages 1–10 green; TaskRepository tests added; Stage 11 (Timer UI) not started |
+| Overall System Status (tested scope) | Stages 1–13 green; Focus Session / TimerService / SessionManager covered; Stage 14 (Goals) next |
 
 ### Suite map
 
@@ -320,6 +335,8 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | TaskManager unit tests | `__tests__/TaskManager.test.ts` | TC_TASK_MGR_01–10 |
 | TaskManager Recently Deleted | `__tests__/TaskManager.trash.test.ts` | TC_TASK_TRASH_01–05 |
 | SqliteTaskRepository | `__tests__/TaskRepository.test.ts` | TC_TASK_REPO_01–10, TC_TASK_REPO_REG_01–03 |
+| TimerService | `__tests__/TimerService.test.ts` | TC_TIMER_01–05, TC_TIMER_08 |
+| SessionManager | `__tests__/SessionManager.test.ts` | TC_TIMER_06–07, TC_SESSION_01–09 |
 
 ### Stage 6 quick reference
 
