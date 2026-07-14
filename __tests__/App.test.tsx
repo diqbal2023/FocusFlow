@@ -31,8 +31,9 @@ describe('FocusFlow navigation shell', () => {
     fireEvent.press(screen.getByTestId('nav-focus'));
 
     expect(
-      screen.getByText('Stay focused with timed work sessions.'),
+      await screen.findByText('Stay focused with timed work sessions.'),
     ).toBeTruthy();
+    expect(await screen.findByTestId('focus-countdown')).toBeTruthy();
     expect(screen.queryByText('Organize and track your work.')).toBeNull();
   });
 
@@ -76,6 +77,7 @@ describe('FocusFlow navigation shell', () => {
     expectNavSelected('nav-focus', false);
 
     fireEvent.press(screen.getByTestId('nav-focus'));
+    await screen.findByTestId('focus-countdown');
 
     expectNavSelected('nav-focus', true);
     expectNavSelected('nav-tasks', false);

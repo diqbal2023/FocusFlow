@@ -830,3 +830,157 @@ No new unresolved product/repository defects remain.
 
 ### Label note (actual code)
 `Task.labels` is a **string** (comma-separated). Validation produces `string[]` then TaskManager joins for storage. Repository tests verify string round-trip and order, not array-on-model behavior.
+
+---
+
+## Stage 11–13 — Focus Session and Timer
+
+### 1. Feature implemented
+- Focus Session UI: large countdown, mode labels/chips, selected task, session counters, progress bar, Start/Pause/Resume/Skip/Reset with state-based disable rules, task selector
+- `TimerService`: timestamp-based remaining time (`endAtMs`), idle/running/paused
+- `SessionManager`: Pomodoro flow (25/5/15), long break after 4 completed work sessions, completed/skipped/interrupted tracking, selected task association
+- Session state is **not** persisted to SQLite yet (no SessionRepository). Timers are ephemeral for this stage; persisting mid-session would need schema + restore semantics that are deferred until Settings/session history is designed.
+
+### 2. Files created
+- `src/services/TimerService.ts`
+- `src/managers/SessionManager.ts`
+- `__tests__/TimerService.test.ts`
+- `__tests__/SessionManager.test.ts`
+
+### 3. Files modified
+- `src/screens/FocusScreen.tsx` — full Focus Session UI wired to `sessionManager`
+- `__tests__/App.test.tsx` — await Focus screen readiness after navigation
+- `documentation/plan.md`
+- `documentation/testing-notes.md`
+- `test-results.txt` (regenerated)
+
+### 4. Testing tools
+- Jest + React Native Testing Library
+- `jest.useFakeTimers()` / `jest.setSystemTime()` for deterministic countdown math
+
+### 5. Test command
+```
+npm run test:windows -- --verbose > test-results.txt 2>&1
+```
+
+### 6. New test IDs
+
+| ID | Name |
+|---|---|
+| TC_TIMER_01 | Timer starts correctly |
+| TC_TIMER_02 | Pause freezes remaining time |
+| TC_TIMER_03 | Resume continues countdown |
+| TC_TIMER_04 | Reset restores initial duration |
+| TC_TIMER_05 | Skip advances by clearing the current segment |
+| TC_TIMER_06 | Work session transitions to short break |
+| TC_TIMER_07 | Fourth completed work session transitions to long break |
+| TC_TIMER_08 | Timer remains accurate using timestamps |
+| TC_SESSION_01 | SessionManager tracks completed work sessions |
+| TC_SESSION_02 | Selected task remains associated with session |
+| TC_SESSION_03 | Interrupted sessions are recorded correctly |
+| TC_SESSION_04 | Default Pomodoro durations are loaded correctly |
+
+### 7. Expected outcomes
+- Timer start/pause/resume/reset/skip behave correctly under fake timers
+- Work → short break; four completed work sessions → long break
+- SessionManager tracks completions, interrupts, selected task, default durations
+- Prior suites remain green; Focus UI subtitle still matches TC_NAV_02
+
+### 8. Actual outcomes
+- All new TC_TIMER / TC_SESSION cases passed
+- Prior suites remained passed
+- TypeScript `tsc --noEmit` clean
+
+### 9. Manual verification
+Command: `npx react-native run-windows`
+
+First deploy attempt failed with known DEF-004-style file lock on `ReactNativeTurboSqlite.dll` while FocusFlow was already running. Closed the process and re-ran; build/deploy/launch succeeded (exit 0).
+
+UI Automation spot-check on the live Focus Session screen:
+
+| Check | Result |
+|---|---|
+| App launch / Focus Session screen | Pass — Focus Session visible with mode Work Session and countdown `25:00` |
+| Start | Pass — countdown advanced (`25:00` → `24:59`); Pause enabled, Start disabled |
+| Pause | Pass — remaining frozen (`24:58` unchanged across 1.5s); Resume enabled |
+| Resume | Pass — countdown continued (`24:56`); Pause enabled again |
+| Skip | Pass — work → Short Break `05:00` |
+| Skip break | Pass — short break → Work Session `25:00` |
+| Reset | Pass — restored idle Work Session `25:00` with Start enabled |
+| Auto short-break after completed work | Covered by Jest TC_TIMER_06 (25m real wait not exercised in UI) |
+| Long break after four work sessions | Covered by Jest TC_TIMER_07 (full 4×25m UI cycle not exercised) |
+| Timer display updates | Pass — countdown updated while running |
+
+### 10. Defects found
+None in Focus Session / Timer product behavior during Stages 11–13.
+
+Deploy note (pre-existing): DLL file lock while app running matches DEF-004 workaround (close FocusFlow, redeploy).
+
+### 11. Fixes applied
+- App nav tests await `focus-countdown` so FocusScreen async task load settles under `act`.
+- Closed running FocusFlow process to complete `run-windows` deploy after file-lock failure.
+
+### 12. Final Jest totals
+| Metric | Value |
+|---|---|
+| Test suites | 9 passed, 9 total |
+| Total tests | 67 |
+| Passed | 67 |
+| Failed | 0 |
+| Snapshots | 0 |
+
+### 13. Overall stage status
+- Stages 11–13 complete; ready for Stage 14 Goals
+
+### 14. Features not yet tested
+- Goals / GoalManager
+- Statistics / StatisticsEngine
+- Settings persistence
+- Notifications / system tray
+- Session persistence / SessionRepository
+- Final integration
+
+---
+
+## Focus Session counter and long-break fix (post Stages 11–13)
+
+### Problem
+- Focus Screen counters (`completedWorkSessions`, `completedBreaks`, `workSessionsTowardLongBreak`) only change when a segment finishes normally (timer reaches zero after Start). Using **Skip** never increments completed-work counters, which looked like “counters are broken” during manual Skip-driven testing.
+- Cycle counter (`workSessionsTowardLongBreak`) was reset to `0` as soon as the 4th work session queued a long break, so the UI showed `0/4` while already on Long Break.
+
+### Decision — skipped work sessions
+**Skipped work is not completed.** Skip does not increment `completedWorkSessions` or `workSessionsTowardLongBreak`. Skip only advances mode (work → short break; break → work). Documented in UI hint text and `SessionManager` header comments. Preserves Stages 11–13 intended behavior.
+
+### Fixes applied
+1. Increment `completedWorkSessions` / cycle progress only on normal work finish; pause/reset/skip do not increment.
+2. After 4th completed work → Long Break with configured 15m duration; cycle display stays at `4/4` during the long break.
+3. When long break reaches zero → increment `completedBreaks` once, switch to Work, reset cycle to `0`, load work duration.
+4. `isCompletingSegment` + clear `hadProgressInSegment` before mode advance to prevent duplicate transitions on multiple zero-ticks.
+5. Long break pause / resume / reset / skip still work; skipping long break also starts a new cycle (`workSessionsTowardLongBreak = 0`).
+6. FocusScreen remains presentational (renders snapshot; calls manager methods only). Label renamed to “Work sessions this cycle” plus skip hint.
+
+### Tests added
+| ID | Name |
+|---|---|
+| TC_SESSION_05 | Skipped work does not increment completed work count |
+| TC_SESSION_06 | Pause and reset do not increment completed work count |
+| TC_SESSION_07 | Long break completion resets cycle and returns to work |
+| TC_SESSION_08 | Duplicate ticks at zero complete a segment only once |
+| TC_SESSION_09 | Long break supports pause, resume, reset, and skip |
+
+### Final Jest totals (after fix)
+| Metric | Value |
+|---|---|
+| Test suites | 9 passed, 9 total |
+| Total tests | 72 |
+| Passed | 72 |
+| Failed | 0 |
+| Snapshots | 0 |
+
+### Files touched
+- `src/managers/SessionManager.ts`
+- `src/screens/FocusScreen.tsx`
+- `__tests__/SessionManager.test.ts`
+- `documentation/testing-notes.md`
+- `test-results.txt`
+

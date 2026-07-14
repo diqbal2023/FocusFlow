@@ -64,10 +64,10 @@ For every stage, follow this workflow:
 - [x] 8. TaskManager tests
 - [x] 9. SQLite repository
 - [x] 10. Repository tests
-- [ ] 11. Timer UI — Next
-- [ ] 12. TimerService and SessionManager
-- [ ] 13. Timer tests with fake timers
-- [ ] 14. Goals
+- [x] 11. Timer UI
+- [x] 12. TimerService and SessionManager
+- [x] 13. Timer tests with fake timers
+- [ ] 14. Goals — Next
 - [ ] 15. GoalManager tests
 - [ ] 16. Statistics
 - [ ] 17. StatisticsEngine tests
@@ -78,12 +78,13 @@ For every stage, follow this workflow:
 
 **Current status notes**
 
-- Stages 1–10 are complete.
-- Stage 11 (Timer UI) is next.
-- Stages 12–21 have not started.
-- Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic, Recently Deleted trash behavior, SQLite persistence wiring, and TaskRepository unit tests.
+- Stages 1–13 are complete.
+- Stage 14 (Goals) is next.
+- Stages 15–21 have not started.
+- Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic, Recently Deleted trash behavior, SQLite persistence, TaskRepository unit tests, TimerService, and SessionManager.
 - Tasks persist in a local SQLite database via TaskRepository / DatabaseService.
-- Timer logic, goals, statistics, settings persistence, and Windows-specific integrations are not implemented yet.
+- Focus Session UI is wired to SessionManager / TimerService (timestamp-based). Session state is not persisted yet (no SessionRepository).
+- Goals, statistics, settings persistence, and Windows-specific integrations are not implemented yet.
 
 ---
 
@@ -342,7 +343,7 @@ For every stage, follow this workflow:
 
 ### Stage 11 — Timer UI
 
-- **Status:** Next
+- **Status:** Complete
 - **Objective:** Build the Focus Session interface.
 - **Main implementation work:**
   - Large countdown
@@ -361,7 +362,7 @@ For every stage, follow this workflow:
 
 ### Stage 12 — TimerService and SessionManager
 
-- **Status:** Not Started
+- **Status:** Complete
 - **Objective:** Implement reliable timer and session business logic.
 - **Main implementation work:**
   - `TimerService` using system timestamps
@@ -383,7 +384,7 @@ For every stage, follow this workflow:
 
 ### Stage 13 — Timer tests with fake timers
 
-- **Status:** Not Started
+- **Status:** Complete
 - **Objective:** Test timer behavior without waiting for real Pomodoro durations.
 - **Main implementation work:**
   - Jest fake-timer tests and timestamp recalculation coverage
@@ -404,7 +405,7 @@ For every stage, follow this workflow:
 
 ### Stage 14 — Goals
 
-- **Status:** Not Started
+- **Status:** Next
 - **Objective:** Build daily and weekly goal functionality.
 - **Main implementation work:**
   - Daily and weekly targets
