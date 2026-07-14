@@ -59,10 +59,10 @@ For every stage, follow this workflow:
 - [x] 3. Shared UI components
 - [x] 4. Component tests
 - [x] 5. Task UI
-- [ ] 6. Task validation tests — In Progress
-- [ ] 7. TaskManager
-- [ ] 8. TaskManager tests
-- [ ] 9. SQLite repository
+- [x] 6. Task validation tests
+- [x] 7. TaskManager
+- [x] 8. TaskManager tests
+- [ ] 9. SQLite repository — Next
 - [ ] 10. Repository tests
 - [ ] 11. Timer UI
 - [ ] 12. TimerService and SessionManager
@@ -78,12 +78,12 @@ For every stage, follow this workflow:
 
 **Current status notes**
 
-- Stages 1–5 are complete.
-- Stage 6 is in progress.
-- Stages 7–21 have not started.
-- Completed tests currently include navigation, shared UI components, and temporary Task UI interactions.
-- Task data currently uses temporary React state.
-- SQLite, TaskManager, timer logic, goals, statistics, settings persistence, and Windows-specific integrations are not implemented yet.
+- Stages 1–8 are complete.
+- Stage 9 (SQLite repository) is next.
+- Stages 10–21 have not started.
+- Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic, and Recently Deleted trash behavior.
+- Task data currently uses temporary React state (no SQLite yet).
+- Timer logic, goals, statistics, settings persistence, and Windows-specific integrations are not implemented yet.
 
 ---
 
@@ -249,7 +249,7 @@ For every stage, follow this workflow:
 
 ### Stage 7 — TaskManager
 
-- **Status:** Not Started
+- **Status:** Complete
 - **Objective:** Move task business logic out of `TasksScreen` into the Application / Business Logic Layer.
 - **Main implementation work:**
   - `TaskManager` class or service
@@ -272,7 +272,7 @@ For every stage, follow this workflow:
 
 ### Stage 8 — TaskManager tests
 
-- **Status:** Not Started
+- **Status:** Complete
 - **Objective:** Test task business rules independently of the UI.
 - **Main implementation work:**
   - Unit tests with mock or in-memory repository
