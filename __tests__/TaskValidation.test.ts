@@ -31,7 +31,7 @@ describe('Task validation', () => {
       priority: 'High',
       estimatedDuration: '45',
       labels: 'school, homework',
-      dueDate: '2026-07-20',
+      dueDate: '07-20-26',
     });
 
     expect(result.isValid).toBe(true);

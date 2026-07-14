@@ -5,8 +5,8 @@ Working notes for the IEEE Software Test Document.
 
 | Field | Value |
 |---|---|
-| Last updated | 2026-07-13 |
-| Current stage covered | Stages 1–6 (shell, navigation, shared UI, task UI, task validation) |
+| Last updated | 2026-07-14 |
+| Current stage covered | Stages 1–7 (through TaskManager refactor) |
 | Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx`, `__tests__/TaskValidation.test.ts` |
 | Primary command | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
 | Alternate command | `npm test` |
@@ -29,7 +29,8 @@ Working notes for the IEEE Software Test Document.
 | 3–4 | Shared UI components + component tests | Complete / passing |
 | 5 | Task UI (temporary React state) + interaction tests | Complete / passing |
 | 6 | Task validation module + validation / form tests | Complete / passing |
-| 7+ | TaskManager, SQLite, etc. | Not started |
+| 7 | TaskManager refactor (business logic layer) | Complete / regression green |
+| 8+ | TaskManager unit tests, SQLite, etc. | Not started |
 
 ---
 
@@ -259,7 +260,7 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Failed | 0 |
 | Pass Percentage | 100% |
 | Snapshots | 0 |
-| Overall System Status (tested scope) | Stages 1–6 automated Jest coverage green; Stage 6 stable and ready for Stage 7 |
+| Overall System Status (tested scope) | Stages 1–7 green; TaskManager refactor preserved all 25 existing automated tests; Stage 8 (TaskManager unit tests) not started |
 
 ### Suite map
 
@@ -270,7 +271,7 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Tasks screen temporary UI state | `__tests__/TasksScreen.test.tsx` | TC_TASK_UI_01–05, TC_TASK_FORM_01 |
 | Task validation | `__tests__/TaskValidation.test.ts` | TC_TASK_VAL_01–08 |
 
-### Stage 6 quick reference (also covered above)
+### Stage 6 quick reference
 
 | Item | Detail |
 |---|---|
@@ -280,4 +281,18 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Command | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
 | Result | All 9 new cases Pass; prior 16 remained Pass |
 | Fixes | None required for Stage 6 |
-| Next | Stage 7 not started (TaskManager / SQLite / etc.) |
+
+### Stage 7 — TaskManager Refactor
+
+| Item | Detail |
+|---|---|
+| Feature implemented | `TaskManager` application-layer business logic; `TasksScreen` delegates create/update/delete/complete/form helpers |
+| Purpose | Move task rules out of the presentation layer without adding SQLite or repository persistence |
+| Files created | `src/managers/TaskManager.ts` |
+| Files modified | `src/screens/TasksScreen.tsx`, `documentation/testing-notes.md`, `test-results.txt` |
+| Existing tests rerun | All prior suites: navigation, shared UI, TasksScreen UI, task validation |
+| Test command used | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
+| Test totals | 4 suites passed; 25 tests passed; 0 failed; 0 snapshots |
+| Defects encountered during refactoring | None |
+| Fixes applied | No corrective fixes required |
+| Overall stage status | Stage 7 complete and stable; ready for Stage 8 (TaskManager unit tests). Still using temporary React state (no SQLite yet). |

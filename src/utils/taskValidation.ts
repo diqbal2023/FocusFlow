@@ -94,15 +94,22 @@ function isValidOptionalDate(value: string): boolean {
   }
 
   const trimmed = value.trim();
-  const parsed = Date.parse(trimmed);
-  if (Number.isNaN(parsed)) {
+  const match = /^(\d{2})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (!match) {
     return false;
   }
 
-  // Reject clearly incomplete numeric junk that Date.parse may accept inconsistently.
-  // Prefer ISO-like or common date strings with a real calendar date.
-  const date = new Date(trimmed);
-  return !Number.isNaN(date.getTime());
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const twoDigitYear = Number(match[3]);
+  const fullYear = 2000 + twoDigitYear;
+  const date = new Date(fullYear, month - 1, day);
+
+  return (
+    date.getFullYear() === fullYear &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
 }
 
 export function validateTaskInput(
@@ -151,7 +158,7 @@ export function validateTaskInput(
   }
 
   if (dueDate && !isValidOptionalDate(dueDate)) {
-    errors.dueDate = 'Due date must be a valid date.';
+    errors.dueDate = 'Due date must be MM-DD-YY.';
   }
 
   const sanitizedData: SanitizedTaskData = {

@@ -13,3 +13,9 @@ export type Task = {
   labels: string;
   parentTaskId: string | null;
 };
+
+/** Soft-deleted task kept for restore within the retention window. */
+export type DeletedTask = Task & {
+  /** ISO timestamp when the task was moved to Recently Deleted. */
+  deletedAt: string;
+};
