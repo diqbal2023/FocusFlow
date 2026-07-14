@@ -9,6 +9,10 @@ import {colors} from '../constants/colors';
 import {spacing} from '../constants/spacing';
 import {typography} from '../constants/typography';
 import type {Task, TaskPriority} from '../types/task';
+import {
+  validateTaskInput,
+  type TaskValidationErrors,
+} from '../utils/taskValidation';
 
 type TaskFormState = {
   title: string;
@@ -70,11 +74,16 @@ function createTaskId(): string {
   return `task-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
 
+function labelsToStorage(labels: string[]): string {
+  return labels.join(', ');
+}
+
 export function TasksScreen() {
   const [tasks, setTasks] = useState<Task[]>(SAMPLE_TASKS);
   const [form, setForm] = useState<TaskFormState>(EMPTY_FORM);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [isFormVisible, setIsFormVisible] = useState(true);
+  const [errors, setErrors] = useState<TaskValidationErrors>({});
 
   const formTitle = useMemo(
     () => (editingTaskId ? 'Edit Task' : 'Add Task'),
@@ -86,11 +95,35 @@ export function TasksScreen() {
     value: TaskFormState[K],
   ) => {
     setForm(current => ({...current, [key]: value}));
+
+    setErrors(current => {
+      const next = {...current};
+      if (key === 'title') {
+        delete next.title;
+      }
+      if (key === 'description') {
+        delete next.description;
+      }
+      if (key === 'priority') {
+        delete next.priority;
+      }
+      if (key === 'dueDate') {
+        delete next.dueDate;
+      }
+      if (key === 'estimatedDurationMinutes') {
+        delete next.estimatedDuration;
+      }
+      if (key === 'labels') {
+        delete next.labels;
+      }
+      return next;
+    });
   };
 
   const clearForm = () => {
     setForm(EMPTY_FORM);
     setEditingTaskId(null);
+    setErrors({});
   };
 
   const startAddTask = () => {
@@ -99,10 +132,30 @@ export function TasksScreen() {
   };
 
   const saveTask = () => {
-    const title = form.title.trim();
-    if (!title) {
+    const result = validateTaskInput({
+      title: form.title,
+      description: form.description,
+      priority: form.priority,
+      estimatedDuration: form.estimatedDurationMinutes,
+      labels: form.labels,
+      dueDate: form.dueDate,
+    });
+
+    if (!result.isValid) {
+      setErrors(result.errors);
       return;
     }
+
+    const {
+      title,
+      description,
+      priority,
+      estimatedDuration,
+      labels,
+      dueDate,
+    } = result.sanitizedData;
+
+    const labelsStored = labelsToStorage(labels);
 
     if (editingTaskId) {
       setTasks(current =>
@@ -111,11 +164,11 @@ export function TasksScreen() {
             ? {
                 ...task,
                 title,
-                description: form.description.trim(),
-                priority: form.priority,
-                dueDate: form.dueDate.trim(),
-                estimatedDurationMinutes: form.estimatedDurationMinutes.trim(),
-                labels: form.labels.trim(),
+                description,
+                priority,
+                dueDate,
+                estimatedDurationMinutes: estimatedDuration,
+                labels: labelsStored,
                 parentTaskId: form.parentTaskId.trim() || null,
               }
             : task,
@@ -125,12 +178,12 @@ export function TasksScreen() {
       const newTask: Task = {
         id: createTaskId(),
         title,
-        description: form.description.trim(),
-        priority: form.priority,
+        description,
+        priority,
         status: 'Pending',
-        dueDate: form.dueDate.trim(),
-        estimatedDurationMinutes: form.estimatedDurationMinutes.trim(),
-        labels: form.labels.trim(),
+        dueDate,
+        estimatedDurationMinutes: estimatedDuration,
+        labels: labelsStored,
         parentTaskId: form.parentTaskId.trim() || null,
       };
       setTasks(current => [newTask, ...current]);
@@ -142,6 +195,7 @@ export function TasksScreen() {
   const editTask = (task: Task) => {
     setEditingTaskId(task.id);
     setIsFormVisible(true);
+    setErrors({});
     setForm({
       title: task.title,
       description: task.description,
@@ -198,6 +252,7 @@ export function TasksScreen() {
             value={form.title}
             onChangeText={text => updateField('title', text)}
             placeholder="Enter task title"
+            error={errors.title}
             testID="task-title-input"
           />
           <AppInput
@@ -205,17 +260,24 @@ export function TasksScreen() {
             value={form.description}
             onChangeText={text => updateField('description', text)}
             placeholder="Enter task description"
+            error={errors.description}
             testID="task-description-input"
           />
           <PrioritySelect
             value={form.priority}
             onChange={priority => updateField('priority', priority)}
           />
+          {errors.priority ? (
+            <Text style={styles.inlineError} testID="task-priority-error">
+              {errors.priority}
+            </Text>
+          ) : null}
           <AppInput
             label="Due Date"
             value={form.dueDate}
             onChangeText={text => updateField('dueDate', text)}
             placeholder="YYYY-MM-DD"
+            error={errors.dueDate}
             testID="task-due-date-input"
           />
           <AppInput
@@ -223,6 +285,7 @@ export function TasksScreen() {
             value={form.estimatedDurationMinutes}
             onChangeText={text => updateField('estimatedDurationMinutes', text)}
             placeholder="e.g. 30"
+            error={errors.estimatedDuration}
             testID="task-duration-input"
           />
           <AppInput
@@ -230,6 +293,7 @@ export function TasksScreen() {
             value={form.labels}
             onChangeText={text => updateField('labels', text)}
             placeholder="Comma-separated labels"
+            error={errors.labels}
             testID="task-labels-input"
           />
           <AppInput
@@ -352,6 +416,10 @@ const styles = StyleSheet.create({
   requiredHint: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  inlineError: {
+    ...typography.caption,
+    color: colors.error,
   },
   formActions: {
     flexDirection: 'row',

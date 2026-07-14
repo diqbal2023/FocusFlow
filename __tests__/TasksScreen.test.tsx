@@ -74,4 +74,19 @@ describe('Tasks screen temporary UI state', () => {
     expect(screen.getByText('Write Unit Tests')).toBeTruthy();
     expect(screen.getByText('Cover task list interactions.')).toBeTruthy();
   });
+
+  it('TC_TASK_FORM_01 saving invalid input displays a validation error and does not add the task to the displayed list', () => {
+    render(<TasksScreen />);
+
+    fireEvent.changeText(screen.getByTestId('task-title-input'), '   ');
+    fireEvent.changeText(
+      screen.getByTestId('task-description-input'),
+      'Should not be saved',
+    );
+    fireEvent.press(screen.getByTestId('save-task-button'));
+
+    expect(screen.getByText('Title is required.')).toBeTruthy();
+    expect(screen.queryByText('Should not be saved')).toBeNull();
+    expect(screen.getByTestId('task-title-input').props.value).toBe('   ');
+  });
 });

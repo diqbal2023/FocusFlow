@@ -5,10 +5,10 @@ Working notes for the IEEE Software Test Document.
 
 | Field | Value |
 |---|---|
-| Last updated | 2026-07-13 (defect log added) |
-| Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx` |
-| Command | `npm test` |
-| Latest result | 3 suites / 16 tests passed / 0 failed / 0 snapshots |
+| Last updated | 2026-07-13 (Stage 6 validation added) |
+| Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx`, `__tests__/TaskValidation.test.ts` |
+| Command | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
+| Latest result | 4 suites / 25 tests passed / 0 failed / 0 snapshots |
 
 ## How to update this file
 
@@ -157,7 +157,7 @@ Working notes for the IEEE Software Test Document.
 
 ## 5. DEFECT TRACKING INFORMATION
 
-Latest automated product test run: **0 new defects** (16/16 tests passed).
+Latest automated product test run: **0 new defects** (25/25 tests passed).
 
 Historical defects found during setup / early automated testing (and fixed) are logged below. These were not invented — they match real failures from this project’s development sessions.
 
@@ -183,13 +183,13 @@ Historical defects found during setup / early automated testing (and fixed) are 
 
 | Metric | Value |
 |---|---|
-| Total Test Suites | 3 |
-| Total Test Cases | 16 |
-| Passed | 16 |
+| Total Test Suites | 4 |
+| Total Test Cases | 25 |
+| Passed | 25 |
 | Failed | 0 |
 | Pass Percentage | 100% |
 | Snapshots | 0 |
-| Overall System Status (tested scope) | All current automated Jest UI tests passing |
+| Overall System Status (tested scope) | All current automated Jest tests passing (navigation, shared UI, task UI, task validation) |
 
 ### Suite map
 
@@ -197,4 +197,137 @@ Historical defects found during setup / early automated testing (and fixed) are 
 |---|---|---|
 | FocusFlow shared UI components | `__tests__/SharedComponents.test.tsx` | TC_UI_01–05 |
 | FocusFlow navigation shell | `__tests__/App.test.tsx` | TC_NAV_01–06 |
-| Tasks screen temporary UI state | `__tests__/TasksScreen.test.tsx` | TC_TASK_UI_01–05 |
+| Tasks screen temporary UI state | `__tests__/TasksScreen.test.tsx` | TC_TASK_UI_01–05, TC_TASK_FORM_01 |
+| Task validation | `__tests__/TaskValidation.test.ts` | TC_TASK_VAL_01–08 |
+
+---
+
+## Stage 6 - Task Validation
+
+1. **Stage:** Stage 6
+
+2. **Feature tested**
+   - Task input validation
+   - Task form validation behavior
+
+3. **Test scope**
+   - Reusable task validation function
+   - Task title validation
+   - Description validation
+   - Priority validation
+   - Estimated-duration validation
+   - Label sanitization and limit
+   - Due-date validation
+   - TasksScreen invalid-save behavior
+
+4. **Test objectives**
+   - Confirm invalid task input is rejected
+   - Confirm valid task input is accepted
+   - Confirm sanitized values are returned
+   - Confirm invalid tasks are not added through the UI
+   - Confirm previous application behavior remains stable
+
+5. **Files tested**
+   - `src/utils/taskValidation.ts`
+   - `src/screens/TasksScreen.tsx`
+   - `src/types/task.ts` (priority/status types used by validation)
+   - `__tests__/TaskValidation.test.ts`
+   - `__tests__/TasksScreen.test.tsx` (TC_TASK_FORM_01)
+   - Existing suites remaining green: `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`
+
+6. **Testing tools**
+   - Jest (`^29.6.3` / locked `29.7.0` in install)
+   - `@testing-library/react-native` (`^13.3.3`)
+   - TypeScript (`^5.8.3`)
+   - React Native for Windows (`react-native` `0.86.0`, `react-native-windows` `^0.84.0`)
+
+7. **Test environment**
+   - Windows
+   - Node.js (project engine `>= 22.11.0`)
+   - React Native for Windows
+   - Jest Windows configuration (`jest.config.windows.js` / `@rnx-kit/jest-preset`)
+
+8. **Exact command used**
+   ```
+   npm run test:windows -- --verbose > test-results.txt 2>&1
+   ```
+
+9. **Test cases added**
+   - TC_TASK_VAL_01 — Rejects empty or whitespace-only title
+   - TC_TASK_VAL_02 — Accepts a valid task
+   - TC_TASK_VAL_03 — Trims titles, descriptions, and labels
+   - TC_TASK_VAL_04 — Rejects title > 100 or description > 500
+   - TC_TASK_VAL_05 — Rejects invalid priority
+   - TC_TASK_VAL_06 — Rejects bad estimated duration (non-numeric / ≤0 / >1440)
+   - TC_TASK_VAL_07 — Rejects more than 10 labels after sanitization
+   - TC_TASK_VAL_08 — Removes blanks and case-insensitive duplicate labels
+   - TC_TASK_FORM_01 — Invalid save shows error and does not add task
+
+10. **Expected outcomes**
+    - VAL_01: `isValid=false`, title error
+    - VAL_02: `isValid=true`, sanitized fields populated
+    - VAL_03: trimmed title/description/labels in `sanitizedData`
+    - VAL_04: length errors for title/description
+    - VAL_05: priority error for values outside Low/Medium/High/Critical
+    - VAL_06: estimatedDuration errors for invalid values
+    - VAL_07: labels error when sanitized count > 10
+    - VAL_08: labels `["School","Homework"]` from noisy input
+    - FORM_01: UI shows title validation error; invalid task not listed; form values retained
+
+11. **Actual outcomes** (from `test-results.txt`)
+    - All 9 new cases reported `√` / PASS
+    - All prior 16 cases remained PASS
+
+12. **Pass/fail status**
+
+| Test Case ID | Status |
+|---|---|
+| TC_TASK_VAL_01 | Pass |
+| TC_TASK_VAL_02 | Pass |
+| TC_TASK_VAL_03 | Pass |
+| TC_TASK_VAL_04 | Pass |
+| TC_TASK_VAL_05 | Pass |
+| TC_TASK_VAL_06 | Pass |
+| TC_TASK_VAL_07 | Pass |
+| TC_TASK_VAL_08 | Pass |
+| TC_TASK_FORM_01 | Pass |
+
+13. **Defects found**
+    - No Stage 6 defects found during development of this validation stage.
+
+14. **Fixes made**
+    - No corrective fixes were required; implementation and tests passed on first full verbose run.
+
+15. **Final totals** (from `test-results.txt`)
+    - Total test suites: **4** passed, 4 total
+    - Total tests: **25** passed, 25 total
+    - Failed: **0**
+    - Snapshots: **0**
+
+16. **Risks and contingencies**
+    - Temporary React state is still used
+    - Validation is not yet enforced through TaskManager
+    - SQLite persistence is not yet implemented
+    - Future model changes may require regression updates
+    - Native Windows UI differences could require additional manual testing
+
+17. **Pass/fail criteria**
+    - Pass: actual behavior matches expected behavior and the Jest assertion succeeds
+    - Fail: behavior differs from the expected result, an assertion fails, or the test suite cannot execute
+
+18. **Overall stage status**
+    - Stage 6 is **stable and ready for Stage 7** based on final Jest results (25/25 passing).
+
+19. **Features not yet tested**
+    - TaskManager
+    - SQLite repositories
+    - Persistent task storage
+    - Subtask completion business rules
+    - Trash retention behavior
+    - Timer
+    - Goals
+    - Statistics
+    - Settings persistence
+    - Notifications
+    - Windows-specific functionality
+    - Final integration behavior
