@@ -12,16 +12,21 @@ function expectNavSelected(testID: string, selected: boolean) {
   });
 }
 
+async function renderAppOnTasks() {
+  render(<App />);
+  await screen.findByText('Organize and track your work.');
+}
+
 describe('FocusFlow navigation shell', () => {
-  it('TC_NAV_01 displays the Tasks screen by default', () => {
-    render(<App />);
+  it('TC_NAV_01 displays the Tasks screen by default', async () => {
+    await renderAppOnTasks();
 
     expect(screen.getByText('Organize and track your work.')).toBeTruthy();
     expectNavSelected('nav-tasks', true);
   });
 
-  it('TC_NAV_02 selecting Focus Session displays the Focus Session screen', () => {
-    render(<App />);
+  it('TC_NAV_02 selecting Focus Session displays the Focus Session screen', async () => {
+    await renderAppOnTasks();
 
     fireEvent.press(screen.getByTestId('nav-focus'));
 
@@ -31,8 +36,8 @@ describe('FocusFlow navigation shell', () => {
     expect(screen.queryByText('Organize and track your work.')).toBeNull();
   });
 
-  it('TC_NAV_03 selecting Statistics displays the Statistics screen', () => {
-    render(<App />);
+  it('TC_NAV_03 selecting Statistics displays the Statistics screen', async () => {
+    await renderAppOnTasks();
 
     fireEvent.press(screen.getByTestId('nav-statistics'));
 
@@ -42,8 +47,8 @@ describe('FocusFlow navigation shell', () => {
     expect(screen.queryByText('Organize and track your work.')).toBeNull();
   });
 
-  it('TC_NAV_04 selecting Goals displays the Goals screen', () => {
-    render(<App />);
+  it('TC_NAV_04 selecting Goals displays the Goals screen', async () => {
+    await renderAppOnTasks();
 
     fireEvent.press(screen.getByTestId('nav-goals'));
 
@@ -53,8 +58,8 @@ describe('FocusFlow navigation shell', () => {
     expect(screen.queryByText('Organize and track your work.')).toBeNull();
   });
 
-  it('TC_NAV_05 selecting Settings displays the Settings screen', () => {
-    render(<App />);
+  it('TC_NAV_05 selecting Settings displays the Settings screen', async () => {
+    await renderAppOnTasks();
 
     fireEvent.press(screen.getByTestId('nav-settings'));
 
@@ -64,8 +69,8 @@ describe('FocusFlow navigation shell', () => {
     expect(screen.queryByText('Organize and track your work.')).toBeNull();
   });
 
-  it('TC_NAV_06 marks the selected sidebar item as active', () => {
-    render(<App />);
+  it('TC_NAV_06 marks the selected sidebar item as active', async () => {
+    await renderAppOnTasks();
 
     expectNavSelected('nav-tasks', true);
     expectNavSelected('nav-focus', false);

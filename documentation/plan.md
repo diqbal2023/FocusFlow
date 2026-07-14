@@ -62,8 +62,8 @@ For every stage, follow this workflow:
 - [x] 6. Task validation tests
 - [x] 7. TaskManager
 - [x] 8. TaskManager tests
-- [ ] 9. SQLite repository — Next
-- [ ] 10. Repository tests
+- [x] 9. SQLite repository
+- [ ] 10. Repository tests — Next
 - [ ] 11. Timer UI
 - [ ] 12. TimerService and SessionManager
 - [ ] 13. Timer tests with fake timers
@@ -78,11 +78,11 @@ For every stage, follow this workflow:
 
 **Current status notes**
 
-- Stages 1–8 are complete.
-- Stage 9 (SQLite repository) is next.
-- Stages 10–21 have not started.
-- Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic, and Recently Deleted trash behavior.
-- Task data currently uses temporary React state (no SQLite yet).
+- Stages 1–9 are complete.
+- Stage 10 (Repository tests) is next.
+- Stages 11–21 have not started.
+- Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic, Recently Deleted trash behavior, and Stage 9 regression with SQLite repository wiring (Jest uses in-memory repository mocks).
+- Tasks persist in a local SQLite database via TaskRepository / DatabaseService.
 - Timer logic, goals, statistics, settings persistence, and Windows-specific integrations are not implemented yet.
 
 ---
@@ -212,7 +212,7 @@ For every stage, follow this workflow:
 
 ### Stage 6 — Task validation tests
 
-- **Status:** In Progress
+- **Status:** Complete
 - **Objective:** Add reusable task validation and confirm invalid input is rejected.
 - **Main implementation work:**
   - `taskValidation` utility
@@ -295,7 +295,7 @@ For every stage, follow this workflow:
 
 ### Stage 9 — SQLite repository
 
-- **Status:** Next
+- **Status:** Complete
 - **Objective:** Add permanent local task storage.
 - **Main implementation work:**
   - Database initialization
@@ -321,7 +321,7 @@ For every stage, follow this workflow:
 
 ### Stage 10 — Repository tests
 
-- **Status:** Not Started
+- **Status:** Next
 - **Objective:** Verify SQLite persistence and repository operations.
 - **Main implementation work:**
   - Automated repository tests and test DB cleanup

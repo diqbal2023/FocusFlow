@@ -2,10 +2,12 @@
  * @format
  */
 
-import {TaskManager, type TaskFormData} from '../src/managers/TaskManager';
+import {
+  TaskManager,
+  type TaskFormData,
+} from '../src/managers/TaskManager';
+import {InMemoryTaskRepository} from '../src/repositories/InMemoryTaskRepository';
 import type {Task} from '../src/types/task';
-
-const manager = new TaskManager();
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -35,10 +37,20 @@ function validForm(overrides: Partial<TaskFormData> = {}): TaskFormData {
   };
 }
 
+async function createManager(seedTasks: Task[] = []): Promise<TaskManager> {
+  const repository = new InMemoryTaskRepository();
+  const manager = new TaskManager(repository);
+  await manager.initialize({seedIfEmpty: false});
+  for (const task of seedTasks) {
+    await repository.createTask(task);
+  }
+  return manager;
+}
+
 describe('TaskManager unit tests', () => {
-  it('TC_TASK_MGR_01 Creates a valid task and adds it to the collection', () => {
-    const existing = [makeTask()];
-    const result = manager.createTask(existing, validForm());
+  it('TC_TASK_MGR_01 Creates a valid task and adds it to the collection', async () => {
+    const manager = await createManager([makeTask()]);
+    const result = await manager.createTask(validForm());
 
     expect(result.success).toBe(true);
     if (!result.success) {
@@ -49,30 +61,30 @@ describe('TaskManager unit tests', () => {
     expect(result.tasks[0].title).toBe('Write Notes');
     expect(result.tasks[0].status).toBe('Pending');
     expect(result.tasks[0].id).toBeTruthy();
-    expect(result.tasks[1]).toEqual(existing[0]);
+    expect(result.tasks.some(task => task.id === 'existing-1')).toBe(true);
     expect(result.errors).toEqual({});
   });
 
-  it('TC_TASK_MGR_02 Rejects invalid task input or returns the appropriate validation failure', () => {
-    const existing = [makeTask()];
-    const result = manager.createTask(
-      existing,
-      validForm({title: '   '}),
-    );
+  it('TC_TASK_MGR_02 Rejects invalid task input or returns the appropriate validation failure', async () => {
+    const manager = await createManager([makeTask()]);
+    const before = (await manager.loadWorkspace()).tasks;
+    const result = await manager.createTask(validForm({title: '   '}));
 
     expect(result.success).toBe(false);
     if (result.success) {
       return;
     }
 
-    expect(result.tasks).toBe(existing);
+    expect(result.tasks).toHaveLength(before.length);
+    expect(result.tasks.map(task => task.id)).toEqual(
+      before.map(task => task.id),
+    );
     expect(result.errors.title).toBe('Title is required.');
   });
 
-  it('TC_TASK_MGR_03 Updates an existing task while preserving its task ID', () => {
-    const existing = [makeTask({id: 'keep-me'})];
-    const result = manager.updateTask(
-      existing,
+  it('TC_TASK_MGR_03 Updates an existing task while preserving its task ID', async () => {
+    const manager = await createManager([makeTask({id: 'keep-me'})]);
+    const result = await manager.updateTask(
       'keep-me',
       validForm({title: 'Updated Title'}),
     );
@@ -87,20 +99,19 @@ describe('TaskManager unit tests', () => {
     expect(result.tasks[0].title).toBe('Updated Title');
   });
 
-  it('TC_TASK_MGR_04 Preserves task fields during editing, including status, priority, due date, estimated duration, description, and labels', () => {
-    const existing = [
-      makeTask({
-        id: 'edit-1',
-        status: 'In Progress',
-        priority: 'Critical',
-        dueDate: '08-01-26',
-        estimatedDurationMinutes: '90',
-        description: 'Keep me until form replaces me',
-        labels: 'alpha, beta',
-      }),
-    ];
+  it('TC_TASK_MGR_04 Preserves task fields during editing, including status, priority, due date, estimated duration, description, and labels', async () => {
+    const existing = makeTask({
+      id: 'edit-1',
+      status: 'In Progress',
+      priority: 'Critical',
+      dueDate: '08-01-26',
+      estimatedDurationMinutes: '90',
+      description: 'Keep me until form replaces me',
+      labels: 'alpha, beta',
+    });
+    const manager = await createManager([existing]);
 
-    const prepared = manager.prepareTaskForEditing(existing[0]);
+    const prepared = manager.prepareTaskForEditing(existing);
     expect(prepared).toEqual({
       title: 'Original Title',
       description: 'Keep me until form replaces me',
@@ -111,8 +122,7 @@ describe('TaskManager unit tests', () => {
       parentTaskId: '',
     });
 
-    const result = manager.updateTask(
-      existing,
+    const result = await manager.updateTask(
       'edit-1',
       validForm({
         title: 'Edited Title',
@@ -139,12 +149,15 @@ describe('TaskManager unit tests', () => {
     expect(updated.labels).toBe('gamma, delta');
   });
 
-  it('TC_TASK_MGR_05 Preserves up to 10 task labels during create and edit operations', () => {
-    const tenLabels = Array.from({length: 10}, (_, index) => `label${index + 1}`);
+  it('TC_TASK_MGR_05 Preserves up to 10 task labels during create and edit operations', async () => {
+    const tenLabels = Array.from(
+      {length: 10},
+      (_, index) => `label${index + 1}`,
+    );
     const labelsInput = tenLabels.join(', ');
+    const manager = await createManager();
 
-    const created = manager.createTask(
-      [],
+    const created = await manager.createTask(
       validForm({title: 'Labeled Create', labels: labelsInput}),
     );
     expect(created.success).toBe(true);
@@ -153,15 +166,12 @@ describe('TaskManager unit tests', () => {
     }
     expect(created.tasks[0].labels).toBe(labelsInput);
 
-    const seeded = [
-      makeTask({
-        id: 'labeled-edit',
-        labels: 'old1, old2',
-      }),
-    ];
-    const edited = manager.updateTask(
-      seeded,
-      'labeled-edit',
+    const seededId = 'labeled-edit';
+    const withOld = await createManager([
+      makeTask({id: seededId, labels: 'old1, old2'}),
+    ]);
+    const edited = await withOld.updateTask(
+      seededId,
       validForm({title: 'Labeled Edit', labels: labelsInput}),
     );
     expect(edited.success).toBe(true);
@@ -172,42 +182,40 @@ describe('TaskManager unit tests', () => {
     expect(edited.tasks[0].labels.split(', ')).toHaveLength(10);
   });
 
-  it('TC_TASK_MGR_06 Does not allow more than 10 labels after sanitization or validation', () => {
+  it('TC_TASK_MGR_06 Does not allow more than 10 labels after sanitization or validation', async () => {
     const elevenLabels = Array.from(
       {length: 11},
       (_, index) => `tag${index + 1}`,
     ).join(', ');
-    const existing = [makeTask()];
+    const manager = await createManager([makeTask()]);
 
-    const createResult = manager.createTask(
-      existing,
+    const createResult = await manager.createTask(
       validForm({labels: elevenLabels}),
     );
     expect(createResult.success).toBe(false);
     if (createResult.success) {
       return;
     }
-    expect(createResult.tasks).toBe(existing);
+    expect(createResult.tasks).toHaveLength(1);
     expect(createResult.errors.labels).toBe(
       'A task can have at most 10 labels.',
     );
 
-    const updateResult = manager.updateTask(
-      existing,
-      existing[0].id,
+    const updateResult = await manager.updateTask(
+      'existing-1',
       validForm({labels: elevenLabels}),
     );
     expect(updateResult.success).toBe(false);
     if (updateResult.success) {
       return;
     }
-    expect(updateResult.tasks).toBe(existing);
+    expect(updateResult.tasks).toHaveLength(1);
     expect(updateResult.errors.labels).toBe(
       'A task can have at most 10 labels.',
     );
   });
 
-  it('TC_TASK_MGR_07 Marks a task as completed without modifying unrelated task fields', () => {
+  it('TC_TASK_MGR_07 Marks a task as completed without modifying unrelated task fields', async () => {
     const target = makeTask({
       id: 'to-complete',
       status: 'In Progress',
@@ -220,68 +228,79 @@ describe('TaskManager unit tests', () => {
       parentTaskId: 'parent-9',
     });
     const other = makeTask({id: 'other-1', title: 'Leave Alone'});
-    const next = manager.completeTask([target, other], 'to-complete');
+    const manager = await createManager([target, other]);
+    const next = await manager.completeTask('to-complete');
 
-    expect(next[0]).toEqual({
+    const completed = next.find(task => task.id === 'to-complete');
+    const untouched = next.find(task => task.id === 'other-1');
+
+    expect(completed).toEqual({
       ...target,
       status: 'Completed',
     });
-    expect(next[1]).toBe(other);
-    expect(next[0].title).toBe('Finish Report');
-    expect(next[0].labels).toBe('work, urgent');
-    expect(next[0].parentTaskId).toBe('parent-9');
+    expect(untouched).toEqual(other);
+    expect(completed?.title).toBe('Finish Report');
+    expect(completed?.labels).toBe('work, urgent');
+    expect(completed?.parentTaskId).toBe('parent-9');
   });
 
-  it('TC_TASK_MGR_08 Deletes the selected task without altering unrelated tasks (soft-delete via moveToTrash)', () => {
+  it('TC_TASK_MGR_08 Deletes the selected task without altering unrelated tasks (soft-delete via moveToTrash)', async () => {
     const keep = makeTask({id: 'keep', title: 'Keep Me'});
     const remove = makeTask({id: 'remove', title: 'Remove Me'});
+    const manager = await createManager([keep, remove]);
     const now = new Date('2026-07-14T15:00:00.000Z');
 
-    const result = manager.moveToTrash([keep, remove], [], 'remove', now);
+    const result = await manager.moveToTrash('remove', now);
 
     expect(result.tasks).toHaveLength(1);
-    expect(result.tasks[0]).toBe(keep);
+    expect(result.tasks[0].id).toBe('keep');
     expect(result.deletedTasks).toHaveLength(1);
     expect(result.deletedTasks[0].id).toBe('remove');
     expect(result.deletedTasks[0].title).toBe('Remove Me');
     expect(result.deletedTasks[0].deletedAt).toBe(now.toISOString());
   });
 
-  it('TC_TASK_MGR_09 Returns or identifies the correct task by ID', () => {
+  it('TC_TASK_MGR_09 Returns or identifies the correct task by ID', async () => {
     const tasks = [
       makeTask({id: 'a', title: 'Alpha'}),
       makeTask({id: 'b', title: 'Beta'}),
     ];
+    const manager = await createManager(tasks);
 
     expect(manager.getTaskById(tasks, 'b')?.title).toBe('Beta');
     expect(manager.getTaskById(tasks, 'missing')).toBeUndefined();
+
+    const workspace = await manager.loadWorkspace();
+    expect(workspace.tasks.find(task => task.id === 'b')?.title).toBe('Beta');
   });
 
-  it('TC_TASK_MGR_10 Returns new arrays or objects instead of mutating the original task collection', () => {
+  it('TC_TASK_MGR_10 Returns new arrays or objects instead of mutating the original task collection', async () => {
     const original = [makeTask({id: 'immutable-1', status: 'Pending'})];
     const snapshot = original.map(task => ({...task}));
+    const manager = await createManager(original);
 
-    const created = manager.createTask(original, validForm({title: 'New Task'}));
+    const created = await manager.createTask(validForm({title: 'New Task'}));
     expect(created.success).toBe(true);
     expect(original).toEqual(snapshot);
-    expect(created.tasks).not.toBe(original);
 
-    const updated = manager.updateTask(
-      original,
+    const updated = await manager.updateTask(
       'immutable-1',
       validForm({title: 'Changed'}),
     );
     expect(updated.success).toBe(true);
     expect(original).toEqual(snapshot);
-    expect(updated.tasks).not.toBe(original);
 
-    const completed = manager.completeTask(original, 'immutable-1');
+    const completed = await manager.completeTask('immutable-1');
     expect(original).toEqual(snapshot);
-    expect(completed).not.toBe(original);
-    expect(completed[0]).not.toBe(original[0]);
+    expect(completed.find(task => task.id === 'immutable-1')?.status).toBe(
+      'In Progress',
+    );
 
-    const trashed = manager.moveToTrash(original, [], 'immutable-1');
+    const trashed = await manager.moveToTrash('immutable-1');
     expect(original).toEqual(snapshot);
-    expect(trashed.tasks).not.toBe(original);
+    expect(trashed.tasks.some(task => task.id === 'immutable-1')).toBe(false);
+    expect(trashed.deletedTasks.some(task => task.id === 'immutable-1')).toBe(
+      true,
+    );
   });
 });

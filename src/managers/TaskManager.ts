@@ -4,6 +4,8 @@ import {
   type TaskValidationErrors,
   type TaskValidationInput,
 } from '../utils/taskValidation';
+import type {ITaskRepository} from '../repositories/ITaskRepository';
+import {SqliteTaskRepository} from '../repositories/SqliteTaskRepository';
 
 /**
  * Form-shaped task input used by the presentation layer.
@@ -34,6 +36,11 @@ export type TaskMutationFailure = {
 export type TaskMutationResult = TaskMutationSuccess | TaskMutationFailure;
 
 export type TrashMutationResult = {
+  tasks: Task[];
+  deletedTasks: DeletedTask[];
+};
+
+export type TaskWorkspace = {
   tasks: Task[];
   deletedTasks: DeletedTask[];
 };
@@ -117,28 +124,81 @@ function msInDays(days: number): number {
   return days * 24 * 60 * 60 * 1000;
 }
 
+function createDefaultRepository(): ITaskRepository {
+  // Production default. Jest UI tests replace this via replaceRepositoryForTests.
+  return new SqliteTaskRepository();
+}
+
 /**
  * Application-layer task business logic.
- * Operates on Task objects/arrays; does not touch React state or SQLite.
+ * Persists through ITaskRepository; does not execute SQL.
  */
 export class TaskManager {
+  private initialized = false;
+
+  constructor(private repository: ITaskRepository = createDefaultRepository()) {}
+
   /**
-   * Returns the starter in-memory task list used before persistence exists.
+   * Test-only helper so UI suites do not share leftover in-memory data.
+   */
+  replaceRepositoryForTests(repository: ITaskRepository): void {
+    this.repository = repository;
+    this.initialized = false;
+  }
+
+  /**
+   * Opens the repository and optionally seeds sample tasks on first launch.
+   */
+  async initialize(options?: {seedIfEmpty?: boolean}): Promise<void> {
+    const seedIfEmpty = options?.seedIfEmpty ?? true;
+    await this.repository.initialize();
+
+    if (seedIfEmpty) {
+      const count = await this.repository.countTasks();
+      if (count === 0) {
+        for (const sample of SAMPLE_TASKS) {
+          await this.repository.createTask({...sample});
+        }
+      }
+    }
+
+    this.initialized = true;
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (!this.initialized) {
+      await this.initialize({seedIfEmpty: false});
+    }
+  }
+
+  private async readWorkspace(): Promise<TaskWorkspace> {
+    const [tasks, deletedTasks] = await Promise.all([
+      this.repository.getAllTasks(),
+      this.repository.getDeletedTasks(),
+    ]);
+    return {tasks, deletedTasks};
+  }
+
+  /**
+   * Loads active and recently deleted tasks after initialization.
+   */
+  async loadWorkspace(): Promise<TaskWorkspace> {
+    await this.ensureInitialized();
+    await this.purgeExpiredDeletedTasks();
+    return this.readWorkspace();
+  }
+
+  /**
+   * Returns starter samples used only for empty-database seeding.
    */
   getInitialTasks(): Task[] {
     return SAMPLE_TASKS.map(task => ({...task}));
   }
 
-  /**
-   * Returns a blank form payload for create mode.
-   */
   clearFormData(): TaskFormData {
     return {...EMPTY_FORM};
   }
 
-  /**
-   * Maps an existing task into form fields for editing.
-   */
   prepareTaskForEditing(task: Task): TaskFormData {
     return {
       title: task.title,
@@ -151,16 +211,10 @@ export class TaskManager {
     };
   }
 
-  /**
-   * Finds a task by id without mutating the collection.
-   */
   getTaskById(tasks: Task[], taskId: string): Task | undefined {
     return tasks.find(task => task.id === taskId);
   }
 
-  /**
-   * Sorts a copy of tasks by priority (Critical → Low), then title.
-   */
   sortTasks(tasks: Task[]): Task[] {
     return [...tasks].sort((left, right) => {
       const priorityDiff =
@@ -172,9 +226,6 @@ export class TaskManager {
     });
   }
 
-  /**
-   * Filters a copy of tasks by optional status and/or case-insensitive title text.
-   */
   filterTasks(
     tasks: Task[],
     options?: {status?: TaskStatus; titleQuery?: string},
@@ -193,16 +244,14 @@ export class TaskManager {
     });
   }
 
-  /**
-   * Validates input and prepends a new Pending task when valid.
-   * Returns the previous collection unchanged when validation fails.
-   */
-  createTask(tasks: Task[], form: TaskFormData): TaskMutationResult {
+  async createTask(form: TaskFormData): Promise<TaskMutationResult> {
+    await this.ensureInitialized();
+    const current = await this.repository.getAllTasks();
     const validation = validateTaskInput(toValidationInput(form));
     if (!validation.isValid) {
       return {
         success: false,
-        tasks,
+        tasks: current,
         errors: validation.errors,
       };
     }
@@ -222,26 +271,26 @@ export class TaskManager {
       parentTaskId: form.parentTaskId.trim() || null,
     };
 
+    await this.repository.createTask(newTask);
     return {
       success: true,
-      tasks: [newTask, ...tasks],
+      tasks: await this.repository.getAllTasks(),
       errors: {},
     };
   }
 
-  /**
-   * Validates input and updates a task by id while preserving id and status.
-   */
-  updateTask(
-    tasks: Task[],
+  async updateTask(
     taskId: string,
     form: TaskFormData,
-  ): TaskMutationResult {
-    const existing = this.getTaskById(tasks, taskId);
+  ): Promise<TaskMutationResult> {
+    await this.ensureInitialized();
+    const existing = await this.repository.getTaskById(taskId);
+    const current = await this.repository.getAllTasks();
+
     if (!existing) {
       return {
         success: false,
-        tasks,
+        tasks: current,
         errors: {title: 'Task could not be found.'},
       };
     }
@@ -250,7 +299,7 @@ export class TaskManager {
     if (!validation.isValid) {
       return {
         success: false,
-        tasks,
+        tasks: current,
         errors: validation.errors,
       };
     }
@@ -258,115 +307,72 @@ export class TaskManager {
     const {title, description, priority, estimatedDuration, labels, dueDate} =
       validation.sanitizedData;
 
-    const nextTasks = tasks.map(task =>
-      task.id === taskId
-        ? {
-            ...task,
-            title,
-            description,
-            priority,
-            dueDate,
-            estimatedDurationMinutes: estimatedDuration,
-            labels: labelsToStorage(labels),
-            parentTaskId: form.parentTaskId.trim() || null,
-          }
-        : task,
-    );
+    const updated: Task = {
+      ...existing,
+      title,
+      description,
+      priority,
+      dueDate,
+      estimatedDurationMinutes: estimatedDuration,
+      labels: labelsToStorage(labels),
+      parentTaskId: form.parentTaskId.trim() || null,
+    };
 
+    await this.repository.updateTask(updated);
     return {
       success: true,
-      tasks: nextTasks,
+      tasks: await this.repository.getAllTasks(),
       errors: {},
     };
   }
 
-  /**
-   * Moves a task into Recently Deleted with a deletion timestamp.
-   * Expired trash items are purged at the same time.
-   */
-  moveToTrash(
-    tasks: Task[],
-    deletedTasks: DeletedTask[],
+  async moveToTrash(
     taskId: string,
     now: Date = new Date(),
-  ): TrashMutationResult {
-    const task = this.getTaskById(tasks, taskId);
-    const purgedTrash = this.purgeExpiredDeletedTasks(deletedTasks, now);
+  ): Promise<TrashMutationResult> {
+    await this.ensureInitialized();
+    await this.purgeExpiredDeletedTasks(now);
 
-    if (!task) {
-      return {tasks, deletedTasks: purgedTrash};
+    const task = await this.repository.getTaskById(taskId);
+    if (task) {
+      await this.repository.moveTaskToTrash(task, now.toISOString());
     }
 
-    const trashed: DeletedTask = {
-      ...task,
-      deletedAt: now.toISOString(),
-    };
-
-    return {
-      tasks: tasks.filter(item => item.id !== taskId),
-      deletedTasks: [trashed, ...purgedTrash.filter(item => item.id !== taskId)],
-    };
+    return this.readWorkspace();
   }
 
-  /**
-   * Restores a soft-deleted task back to the active list.
-   */
-  restoreTask(
-    tasks: Task[],
-    deletedTasks: DeletedTask[],
+  async restoreTask(
     taskId: string,
     now: Date = new Date(),
-  ): TrashMutationResult {
-    const purgedTrash = this.purgeExpiredDeletedTasks(deletedTasks, now);
-    const deleted = purgedTrash.find(task => task.id === taskId);
-
-    if (!deleted) {
-      return {tasks, deletedTasks: purgedTrash};
-    }
-
-    const {deletedAt: _deletedAt, ...restored} = deleted;
-
-    return {
-      tasks: [restored, ...tasks.filter(task => task.id !== taskId)],
-      deletedTasks: purgedTrash.filter(task => task.id !== taskId),
-    };
+  ): Promise<TrashMutationResult> {
+    await this.ensureInitialized();
+    await this.purgeExpiredDeletedTasks(now);
+    await this.repository.restoreTask(taskId);
+    return this.readWorkspace();
   }
 
-  /**
-   * Permanently removes a task from Recently Deleted before auto-expiry.
-   */
-  permanentlyDeleteTask(
-    deletedTasks: DeletedTask[],
+  async permanentlyDeleteTask(
     taskId: string,
     now: Date = new Date(),
-  ): DeletedTask[] {
-    return this.purgeExpiredDeletedTasks(deletedTasks, now).filter(
-      task => task.id !== taskId,
-    );
+  ): Promise<DeletedTask[]> {
+    await this.ensureInitialized();
+    await this.purgeExpiredDeletedTasks(now);
+    await this.repository.permanentlyDeleteTask(taskId);
+    return this.repository.getDeletedTasks();
   }
 
-  /**
-   * Permanently removes Recently Deleted items older than retention days.
-   */
-  purgeExpiredDeletedTasks(
-    deletedTasks: DeletedTask[],
+  async purgeExpiredDeletedTasks(
     now: Date = new Date(),
     retentionDays: number = DELETED_TASK_RETENTION_DAYS,
-  ): DeletedTask[] {
-    const cutoff = now.getTime() - msInDays(retentionDays);
-
-    return deletedTasks.filter(task => {
-      const deletedAtMs = Date.parse(task.deletedAt);
-      if (Number.isNaN(deletedAtMs)) {
-        return false;
-      }
-      return deletedAtMs >= cutoff;
-    });
+  ): Promise<DeletedTask[]> {
+    await this.ensureInitialized();
+    const cutoffIso = new Date(
+      now.getTime() - msInDays(retentionDays),
+    ).toISOString();
+    await this.repository.purgeDeletedBefore(cutoffIso);
+    return this.repository.getDeletedTasks();
   }
 
-  /**
-   * Remaining whole days before permanent deletion (0 if expired).
-   */
   getDaysRemainingInTrash(
     deletedTask: DeletedTask,
     now: Date = new Date(),
@@ -386,34 +392,29 @@ export class TaskManager {
     return Math.ceil(remainingMs / msInDays(1));
   }
 
-  /**
-   * Advances task status one step:
-   * Pending → In Progress → Completed.
-   * Completed tasks are left unchanged.
-   */
-  advanceTaskStatus(tasks: Task[], taskId: string): Task[] {
-    return tasks.map(task => {
-      if (task.id !== taskId) {
-        return task;
-      }
+  async advanceTaskStatus(taskId: string): Promise<Task[]> {
+    await this.ensureInitialized();
+    const task = await this.repository.getTaskById(taskId);
+    if (!task) {
+      return this.repository.getAllTasks();
+    }
 
-      if (task.status === 'Pending') {
-        return {...task, status: 'In Progress'};
-      }
+    let nextStatus: TaskStatus = task.status;
+    if (task.status === 'Pending') {
+      nextStatus = 'In Progress';
+    } else if (task.status === 'In Progress') {
+      nextStatus = 'Completed';
+    }
 
-      if (task.status === 'In Progress') {
-        return {...task, status: 'Completed'};
-      }
+    if (nextStatus !== task.status) {
+      await this.repository.updateTask({...task, status: nextStatus});
+    }
 
-      return task;
-    });
+    return this.repository.getAllTasks();
   }
 
-  /**
-   * Alias for advanceTaskStatus (Pending → In Progress → Completed).
-   */
-  completeTask(tasks: Task[], taskId: string): Task[] {
-    return this.advanceTaskStatus(tasks, taskId);
+  async completeTask(taskId: string): Promise<Task[]> {
+    return this.advanceTaskStatus(taskId);
   }
 }
 

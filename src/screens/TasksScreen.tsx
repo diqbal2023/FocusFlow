@@ -1,5 +1,5 @@
-import {useMemo, useState} from 'react';
-import {ScrollView, StyleSheet, Text, View} from 'react-native';
+import {useEffect, useMemo, useRef, useState} from 'react';
+import {ActivityIndicator, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {AppButton} from '../components/AppButton';
 import {AppCard} from '../components/AppCard';
 import {AppInput} from '../components/AppInput';
@@ -16,8 +16,15 @@ import {
 import type {DeletedTask, Task, TaskPriority} from '../types/task';
 import type {TaskValidationErrors} from '../utils/taskValidation';
 
+function toUserError(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+}
+
 export function TasksScreen() {
-  const [tasks, setTasks] = useState<Task[]>(() => taskManager.getInitialTasks());
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [deletedTasks, setDeletedTasks] = useState<DeletedTask[]>([]);
   const [form, setForm] = useState<TaskFormData>(() =>
     taskManager.clearFormData(),
@@ -26,6 +33,49 @@ export function TasksScreen() {
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [isTrashVisible, setIsTrashVisible] = useState(false);
   const [errors, setErrors] = useState<TaskValidationErrors>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        await taskManager.initialize({seedIfEmpty: true});
+        const workspace = await taskManager.loadWorkspace();
+        if (cancelled || !mountedRef.current) {
+          return;
+        }
+        setTasks(workspace.tasks);
+        setDeletedTasks(workspace.deletedTasks);
+        setLoadError(null);
+      } catch (error) {
+        if (cancelled || !mountedRef.current) {
+          return;
+        }
+        console.error('Failed to load tasks from local database', error);
+        setLoadError(
+          toUserError(
+            error,
+            'Could not load tasks from the local database.',
+          ),
+        );
+      } finally {
+        if (!cancelled && mountedRef.current) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      mountedRef.current = false;
+    };
+  }, []);
 
   const formTitle = useMemo(
     () => (editingTaskId ? 'Edit Task' : 'Add Task'),
@@ -37,6 +87,7 @@ export function TasksScreen() {
     value: TaskFormData[K],
   ) => {
     setForm(current => ({...current, [key]: value}));
+    setActionError(null);
 
     setErrors(current => {
       const next = {...current};
@@ -68,13 +119,11 @@ export function TasksScreen() {
     setErrors({});
   };
 
-  /** Clears fields but keeps the form open so the user can continue editing. */
   const clearForm = () => {
     resetFormFields();
     setIsFormVisible(true);
   };
 
-  /** Clears fields and hides the form (used after a successful save). */
   const closeForm = () => {
     resetFormFields();
     setIsFormVisible(false);
@@ -82,22 +131,52 @@ export function TasksScreen() {
 
   const startAddTask = () => {
     resetFormFields();
+    setActionError(null);
     setIsTrashVisible(false);
     setIsFormVisible(true);
   };
 
-  const saveTask = () => {
-    const result = editingTaskId
-      ? taskManager.updateTask(tasks, editingTaskId, form)
-      : taskManager.createTask(tasks, form);
-
-    if (!result.success) {
-      setErrors(result.errors);
+  const saveTask = async () => {
+    if (isSaving) {
       return;
     }
 
-    setTasks(result.tasks);
-    closeForm();
+    setIsSaving(true);
+    setActionError(null);
+
+    try {
+      const result = editingTaskId
+        ? await taskManager.updateTask(editingTaskId, form)
+        : await taskManager.createTask(form);
+
+      if (!mountedRef.current) {
+        return;
+      }
+
+      if (!result.success) {
+        setErrors(result.errors);
+        return;
+      }
+
+      setTasks(result.tasks);
+      closeForm();
+    } catch (error) {
+      console.error('Failed to save task', error);
+      if (mountedRef.current) {
+        setActionError(
+          toUserError(
+            error,
+            editingTaskId
+              ? 'Could not update the task.'
+              : 'Could not create the task.',
+          ),
+        );
+      }
+    } finally {
+      if (mountedRef.current) {
+        setIsSaving(false);
+      }
+    }
   };
 
   const editTask = (task: Task) => {
@@ -105,44 +184,99 @@ export function TasksScreen() {
     setIsTrashVisible(false);
     setIsFormVisible(true);
     setErrors({});
+    setActionError(null);
     setForm(taskManager.prepareTaskForEditing(task));
   };
 
-  const advanceStatus = (taskId: string) => {
-    setTasks(current => taskManager.advanceTaskStatus(current, taskId));
-  };
-
-  const deleteTask = (taskId: string) => {
-    const result = taskManager.moveToTrash(tasks, deletedTasks, taskId);
-    setTasks(result.tasks);
-    setDeletedTasks(result.deletedTasks);
-    if (editingTaskId === taskId) {
-      closeForm();
+  const advanceStatus = async (taskId: string) => {
+    setActionError(null);
+    try {
+      const next = await taskManager.advanceTaskStatus(taskId);
+      if (mountedRef.current) {
+        setTasks(next);
+      }
+    } catch (error) {
+      console.error('Failed to update task status', error);
+      if (mountedRef.current) {
+        setActionError(toUserError(error, 'Could not update task status.'));
+      }
     }
   };
 
-  const openRecentlyDeleted = () => {
-    setDeletedTasks(current =>
-      taskManager.purgeExpiredDeletedTasks(current),
-    );
-    setIsFormVisible(false);
-    setIsTrashVisible(true);
+  const deleteTask = async (taskId: string) => {
+    setActionError(null);
+    try {
+      const result = await taskManager.moveToTrash(taskId);
+      if (!mountedRef.current) {
+        return;
+      }
+      setTasks(result.tasks);
+      setDeletedTasks(result.deletedTasks);
+      if (editingTaskId === taskId) {
+        closeForm();
+      }
+    } catch (error) {
+      console.error('Failed to delete task', error);
+      if (mountedRef.current) {
+        setActionError(toUserError(error, 'Could not delete the task.'));
+      }
+    }
+  };
+
+  const openRecentlyDeleted = async () => {
+    setActionError(null);
+    try {
+      const purged = await taskManager.purgeExpiredDeletedTasks();
+      if (mountedRef.current) {
+        setDeletedTasks(purged);
+        setIsFormVisible(false);
+        setIsTrashVisible(true);
+      }
+    } catch (error) {
+      console.error('Failed to open Recently Deleted', error);
+      if (mountedRef.current) {
+        setActionError(
+          toUserError(error, 'Could not open Recently Deleted.'),
+        );
+      }
+    }
   };
 
   const closeRecentlyDeleted = () => {
     setIsTrashVisible(false);
   };
 
-  const restoreDeletedTask = (taskId: string) => {
-    const result = taskManager.restoreTask(tasks, deletedTasks, taskId);
-    setTasks(result.tasks);
-    setDeletedTasks(result.deletedTasks);
+  const restoreDeletedTask = async (taskId: string) => {
+    setActionError(null);
+    try {
+      const result = await taskManager.restoreTask(taskId);
+      if (mountedRef.current) {
+        setTasks(result.tasks);
+        setDeletedTasks(result.deletedTasks);
+      }
+    } catch (error) {
+      console.error('Failed to restore task', error);
+      if (mountedRef.current) {
+        setActionError(toUserError(error, 'Could not restore the task.'));
+      }
+    }
   };
 
-  const permanentlyDeleteTask = (taskId: string) => {
-    setDeletedTasks(current =>
-      taskManager.permanentlyDeleteTask(current, taskId),
-    );
+  const permanentlyDeleteTask = async (taskId: string) => {
+    setActionError(null);
+    try {
+      const next = await taskManager.permanentlyDeleteTask(taskId);
+      if (mountedRef.current) {
+        setDeletedTasks(next);
+      }
+    } catch (error) {
+      console.error('Failed to permanently delete task', error);
+      if (mountedRef.current) {
+        setActionError(
+          toUserError(error, 'Could not permanently delete the task.'),
+        );
+      }
+    }
   };
 
   const statusActionTitle = (status: Task['status']): string | null => {
@@ -154,6 +288,23 @@ export function TasksScreen() {
     }
     return null;
   };
+
+  if (isLoading) {
+    return (
+      <View style={styles.centered} testID="tasks-loading">
+        <ActivityIndicator color={colors.primary} />
+        <Text style={styles.loadingText}>Loading tasks…</Text>
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={styles.centered} testID="tasks-load-error">
+        <Text style={styles.errorText}>{loadError}</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -183,6 +334,12 @@ export function TasksScreen() {
           />
         </View>
       </View>
+
+      {actionError ? (
+        <Text style={styles.errorText} testID="tasks-action-error">
+          {actionError}
+        </Text>
+      ) : null}
 
       {isTrashVisible ? (
         <View style={styles.listSection} testID="recently-deleted-section">
@@ -323,7 +480,7 @@ export function TasksScreen() {
 
               <View style={styles.formActions}>
                 <AppButton
-                  title="Save Task"
+                  title={isSaving ? 'Saving…' : 'Save Task'}
                   onPress={saveTask}
                   testID="save-task-button"
                   style={styles.formActionButton}
@@ -421,6 +578,22 @@ const styles = StyleSheet.create({
     padding: spacing.xxl,
     gap: spacing.xl,
     paddingBottom: spacing.xxl * 2,
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    padding: spacing.xxl,
+    backgroundColor: colors.surfaceMuted,
+  },
+  loadingText: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  errorText: {
+    ...typography.body,
+    color: colors.error,
   },
   topRow: {
     flexDirection: 'row',

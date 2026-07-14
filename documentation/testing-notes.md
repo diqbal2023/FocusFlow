@@ -5,8 +5,8 @@ Working notes for the IEEE Software Test Document.
 
 | Field | Value |
 |---|---|
-| Last updated | 2026-07-14 (Stage 8 TaskManager unit tests) |
-| Current stage covered | Stages 1–8 (through TaskManager unit tests) |
+| Last updated | 2026-07-14 (Stage 9 SQLite repository) |
+| Current stage covered | Stages 1–9 (through SQLite task persistence) |
 | Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx`, `__tests__/TaskValidation.test.ts`, `__tests__/TaskManager.test.ts`, `__tests__/TaskManager.trash.test.ts` |
 | Primary command | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
 | Alternate command | `npm test` |
@@ -31,7 +31,8 @@ Working notes for the IEEE Software Test Document.
 | 6 | Task validation module + validation / form tests | Complete / passing |
 | 7 | TaskManager refactor (business logic layer) | Complete / regression green |
 | 8 | TaskManager unit tests (TC_TASK_MGR + trash suite) | Complete / passing |
-| 9+ | SQLite repository, timer, goals, etc. | Not started |
+| 9 | SQLite repository + task persistence | Complete / regression green |
+| 10+ | Repository test suite, timer, goals, etc. | Not started |
 
 ---
 
@@ -239,6 +240,9 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | DEF-002 | Navigation tests TC_NAV_01 and TC_NAV_06 failed with `TypeError: expect(...).toHaveAccessibilityState is not a function`. Matcher was unavailable in the current Jest + RNTL setup. | Minor | 1. Add NAV tests using `toHaveAccessibilityState({ selected: true })` 2. Run `npm run test:windows` or `npm test` 3. Observe failures on TC_NAV_01 and TC_NAV_06 | Fixed | Fixed in `__tests__/App.test.tsx` by asserting `props.accessibilityState` via helper `expectNavSelected` (same intent, no matcher dependency). Re-run: all nav tests passed. |
 | DEF-003 | `run-windows` / MSBuild failed with **No .NET SDKs were found** / `dotnet.exe` not recognized in the build environment even though .NET SDK was installed on disk. Blocked packaging/run of FocusFlow for Windows. | Major | 1. Ensure VS C++ tools are installed 2. From a terminal where PATH may not expose `dotnet`, run `npm run windows` / `npx react-native run-windows` 3. Observe SDK-not-found / `dotnet.exe` errors during restore/build | Fixed | Fixed by setting `DOTNET_ROOT` and prepending `C:\Program Files\dotnet` to PATH in the `windows` script in `package.json`. Subsequent builds progressed past the SDK detection failure. |
 | DEF-004 | Windows deploy failed after a successful build with `IOException` / file lock on `Microsoft.ReactNative.dll` (`Err_LayoutUpdate_CopyFile`, exit code 5). Usually means FocusFlow (or another process) still has the installed package files open. | Minor | 1. Leave a previous FocusFlow Windows app instance running 2. Run `npx react-native run-windows` (or `npm run windows`) 3. Build may succeed; deploy fails copying DLL into AppX layout | Workaround / Open | Not a FocusFlow source-code defect. Workaround: close the running FocusFlow app (and related processes), then re-run `npm run windows`. No app code change required. |
+| DEF-005 | `@dr.pogodin/react-native-fs` failed Windows MSBuild with `unknown command 'codegen-windows'` during Stage 9 SQLite path setup. | Major | 1. Install `@dr.pogodin/react-native-fs` 2. Run `npx react-native run-windows` | Fixed | Removed the package. Added minimal native module `LocalAppPaths` (`windows/FocusFlow/LocalAppPaths.h`) returning ApplicationData LocalFolder (or `%LOCALAPPDATA%\FocusFlow` fallback). Regenerated/cleaned autolink after uninstall. |
+| DEF-006 | `react-native-turbo-sqlite` Windows project uses Platform Toolset `v143` (VS 2022); FocusFlow builds with `v145`, causing MSB8020. | Major | 1. Install `react-native-turbo-sqlite` 2. Build FocusFlow Windows solution on VS with v145 only | Fixed | Retarget `ReactNativeTurboSqlite.vcxproj` to `v145` via `scripts/patch-turbo-sqlite-windows.js` and `postinstall`. |
+| DEF-007 | `LocalAppPaths.h` failed to compile: `u8string()` returns `std::u8string` which cannot convert to `std::string`. | Minor | 1. Build FocusFlow after adding LocalAppPaths helper | Fixed | Return `winrt::to_string(dir.wstring())` instead of `u8string()`. |
 
 ### Defect field notes (for STD authors)
 
@@ -261,7 +265,7 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Failed | 0 |
 | Pass Percentage | 100% |
 | Snapshots | 0 |
-| Overall System Status (tested scope) | Stages 1–8 green; TaskManager unit tests + prior suites pass; Stage 9 (SQLite repository) not started |
+| Overall System Status (tested scope) | Stages 1–9 green; SQLite persistence integrated; Stage 10 (repository tests) not started |
 
 ### Suite map
 
@@ -464,4 +468,164 @@ Notes on Stage 7 extras discovered while writing Stage 8:
 - Status flow is Pending → In Progress → Completed (`advanceTaskStatus` / `completeTask`)
 - Helper APIs exist: `sortTasks`, `filterTasks`, seed `getInitialTasks`, form helpers
 - `parentTaskId` is preserved as a string field; no subtask completion gating exists yet
-- Labels and parent/subtask relationships remain separate concepts |
+- Labels and parent/subtask relationships remain separate concepts
+
+---
+
+## Stage 9 - SQLite Repository and Task Persistence
+
+### 1. Stage
+- Stage 9
+
+### 2. Feature implemented
+- Local SQLite database (`react-native-turbo-sqlite`)
+- `DatabaseService` for connection + schema
+- `SqliteTaskRepository` / `ITaskRepository` / `InMemoryTaskRepository`
+- Persistent task storage (active + Recently Deleted tables)
+- TaskManager repository integration (async)
+- TasksScreen load/save/error/loading integration
+
+### 3. Test scope
+- Existing automated regression tests (all Stage 1–8 suites)
+- Database initialization (idempotent `CREATE TABLE IF NOT EXISTS`)
+- Task loading on mount
+- Task creation/edit/delete persistence (manual SQLite + app restart cycle)
+- Label persistence as comma-separated text
+- Error handling surfaces on TasksScreen
+- Jest mocks for native SQLite
+
+### 4. Test objectives
+- Confirm task data is stored locally in SQLite
+- Confirm tasks/seeds survive application process restart without wipe
+- Confirm TaskManager uses the repository (no SQL in manager/UI)
+- Confirm existing automated behavior remains stable
+
+### 5. Files created and modified
+Created:
+- `src/services/DatabaseService.ts`
+- `src/repositories/ITaskRepository.ts`
+- `src/repositories/SqliteTaskRepository.ts`
+- `src/repositories/InMemoryTaskRepository.ts`
+- `windows/FocusFlow/LocalAppPaths.h`
+- `jest.setup.js`
+- `scripts/patch-turbo-sqlite-windows.js`
+- `scripts/stage9-persistence-check.py` (manual verification helper)
+
+Modified:
+- `src/managers/TaskManager.ts`
+- `src/screens/TasksScreen.tsx`
+- `__tests__/TaskManager.test.ts`
+- `__tests__/TaskManager.trash.test.ts`
+- `__tests__/TasksScreen.test.tsx`
+- `__tests__/App.test.tsx`
+- `jest.config.windows.js`
+- `package.json` (+ `postinstall`)
+- `windows/FocusFlow/FocusFlow.cpp`
+- `windows/FocusFlow/pch.h`
+- `windows/FocusFlow/AutolinkedNativeModules.g.cpp`
+- `windows/FocusFlow.sln` (removed stale ReactNativeFs)
+- `documentation/testing-notes.md`
+- `documentation/plan.md`
+- `test-results.txt`
+
+### 6. SQLite package
+| Item | Detail |
+|---|---|
+| Name | `react-native-turbo-sqlite` |
+| Installed version | `0.6.2` |
+| Compatibility reason | Explicit Windows + New Architecture (C++ TurboModule). Project already has `RnwNewArch=true`. |
+| Native configuration required | Autolinking; PlatformToolset patch to `v145`; minimal `LocalAppPaths` native helper for writable LocalFolder path |
+| Not used | Expo SQLite, AsyncStorage, Firebase/Supabase/Realm, `@dr.pogodin/react-native-fs` (build failure DEF-005) |
+| Limitation | Package README marks Windows support experimental |
+
+### 7. Database schema
+Tables:
+- `tasks` — primary key `id` (TEXT)
+- `deleted_tasks` — primary key `id` (TEXT) + `deleted_at` (TEXT ISO)
+
+Fields on both task shapes: `title`, `description`, `priority`, `status`, `due_date`, `estimated_duration_minutes`, `labels`, `parent_task_id`
+
+Label storage: Option A — single TEXT column storing the same comma-separated string as `Task.labels` (preserves ≤10 labels via validation; simple to migrate later)
+
+SQL: all repository writes use parameterized `?` placeholders.
+
+Path: `{LocalFolder}/focusflow.db` (Package LocalState observed: `%LOCALAPPDATA%\Packages\FocusFlow_wk8nzwejgnza6\LocalState\focusflow.db`)
+
+### 8. Testing tools
+- Jest + React Native Testing Library
+- TypeScript
+- React Native for Windows
+- `react-native-turbo-sqlite`
+- Manual Windows restart checks + Python `sqlite3` helper
+
+### 9. Exact automated test command
+```
+npm run test:windows -- --verbose > test-results.txt 2>&1
+```
+
+### 10. Automated results
+| Metric | Value |
+|---|---|
+| Test suites | 6 passed, 6 total |
+| Total tests | 42 |
+| Passed | 42 |
+| Failed | 0 |
+| Snapshots | 0 |
+
+### 11. Manual persistence procedure
+Steps executed:
+1. `npx react-native run-windows` — build/deploy/launch succeeded after DEF-005/006/007 fixes
+2. Confirmed DB file created and seeded with sample tasks via app initialize
+3. Closed FocusFlow process
+4. Inserted `SQLite Persistence Test` into `tasks` using the same schema/SQL shape as `SqliteTaskRepository`
+5. Relaunched FocusFlow.exe without redeploy
+6. Closed app; confirmed row remained
+7. Updated title/description/priority; relaunched; confirmed edited values remained
+8. Deleted row; relaunched; confirmed task gone and samples still present (no reseeding wipe)
+
+Expected: create/edit/delete survive restart; empty-table seed does not overwrite existing data.
+
+Actual:
+- Create survived restart — Pass
+- Edit survived restart — Pass
+- Delete survived restart — Pass
+- Samples retained — Pass
+
+Notes: Full click-through Add/Edit/Delete in the UI was not automated. End-to-end UI persistence should still be spot-checked manually in Stage 10 if desired. Seed write on first launch proved the live `TaskManager` → repository → SQLite create path.
+
+### 12. Defects found
+- DEF-005, DEF-006, DEF-007 (see defect table) — all fixed during Stage 9
+
+### 13. Fixes made
+- Removed incompatible `react-native-fs`
+- Added `LocalAppPaths` for LocalFolder path
+- Added postinstall PlatformToolset patch for turbo-sqlite
+- Cleaned stale autolink/solution references
+- Made TaskManager async + repository-backed; updated Jest suites/mocks accordingly
+
+### 14. Risks and contingencies
+- Native SQLite package Windows support is experimental
+- Toolset patch required after every fresh install (`postinstall`)
+- Database migration risk for future schema changes
+- Corrupt local database recovery not implemented
+- Async loading failures possible if native modules fail
+- Jest uses InMemoryTaskRepository / mocks (no real native SQLite in CI)
+- Full TC_REPO suite deferred to Stage 10
+- `run-windows` redeploy can wipe package LocalState (known RNW behavior)
+
+### 15. Pass/fail criteria
+- Pass: tasks are saved, loaded, updated, and deleted correctly and survive process restart
+- Fail: data lost, unexpected field changes, unresolved init errors, or app cannot initialize DB
+
+### 16. Overall stage status
+- Stage 9 stable and ready for Stage 10 repository tests
+- Automated regression green; Windows app builds and launches with SQLite
+
+### 17. Features not yet tested
+- Full repository unit/integration suite (Stage 10)
+- Migration behavior
+- Large datasets
+- Corrupt database recovery
+- Full UI click-path persistence checklist (partial/manual helper used)
+- Timer / Goals / Statistics / Settings persistence / notifications / final integration
+ |

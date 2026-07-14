@@ -3,11 +3,10 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "android": "react-native run-android",
-    "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
+    "postinstall": "node scripts/patch-turbo-sqlite-windows.js",
     "windows": "set \"DOTNET_ROOT=C:\\Program Files\\dotnet\" && set \"PATH=C:\\Program Files\\dotnet;%PATH%\" && npx @react-native-community/cli run-windows",
     "clean:windows": "npx react-native clean --include windows",
     "test:windows": "jest --config jest.config.windows.js"
@@ -17,6 +16,7 @@
     "react": "19.2.3",
     "react-native": "0.86.0",
     "react-native-safe-area-context": "^5.5.2",
+    "react-native-turbo-sqlite": "^0.6.2",
     "react-native-windows": "^0.84.0"
   },
   "devDependencies": {
@@ -24,8 +24,6 @@
     "@babel/preset-env": "^7.25.3",
     "@babel/runtime": "^7.25.0",
     "@react-native-community/cli": "20.1.0",
-    "@react-native-community/cli-platform-android": "20.1.0",
-    "@react-native-community/cli-platform-ios": "20.1.0",
     "@react-native/babel-preset": "0.86.0",
     "@react-native/eslint-config": "0.86.0",
     "@react-native/metro-config": "0.86.0",
