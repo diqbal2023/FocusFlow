@@ -6,10 +6,10 @@ FocusFlow is an offline productivity and time-management desktop application for
 
 | Item | Detail |
 |---|---|
-| Platform | React Native for Windows |
+| Platform | React Native for Windows (Windows only; no iOS/Android app targets) |
 | Language | TypeScript |
 | Testing | Jest + React Native Testing Library |
-| Storage (planned) | Local SQLite |
+| Storage | Local SQLite (`react-native-turbo-sqlite`) via `DatabaseService` + `SqliteTaskRepository` |
 | Auth | No login, signup, OAuth, or cloud authentication |
 | Profile | Single local profile per installation |
 | Network | Offline-first desktop application |
@@ -20,7 +20,7 @@ FocusFlow is an offline productivity and time-management desktop application for
 |---|---|
 | Presentation Layer | Screens, shared UI components, navigation, form interactions |
 | Application / Business Logic Layer | Managers and services (TaskManager, SessionManager, GoalManager, StatisticsEngine, etc.) |
-| Data Access Layer | Repositories (TaskRepository, SettingsRepository, etc.) |
+| Data Access Layer | Repositories (`SqliteTaskRepository` / `ITaskRepository`, future SettingsRepository, etc.) |
 | Data Storage Layer | Local SQLite database and AppData files |
 
 ---
@@ -63,8 +63,8 @@ For every stage, follow this workflow:
 - [x] 7. TaskManager
 - [x] 8. TaskManager tests
 - [x] 9. SQLite repository
-- [ ] 10. Repository tests — Next
-- [ ] 11. Timer UI
+- [x] 10. Repository tests
+- [ ] 11. Timer UI — Next
 - [ ] 12. TimerService and SessionManager
 - [ ] 13. Timer tests with fake timers
 - [ ] 14. Goals
@@ -78,10 +78,10 @@ For every stage, follow this workflow:
 
 **Current status notes**
 
-- Stages 1–9 are complete.
-- Stage 10 (Repository tests) is next.
-- Stages 11–21 have not started.
-- Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic, Recently Deleted trash behavior, and Stage 9 regression with SQLite repository wiring (Jest uses in-memory repository mocks).
+- Stages 1–10 are complete.
+- Stage 11 (Timer UI) is next.
+- Stages 12–21 have not started.
+- Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic, Recently Deleted trash behavior, SQLite persistence wiring, and TaskRepository unit tests.
 - Tasks persist in a local SQLite database via TaskRepository / DatabaseService.
 - Timer logic, goals, statistics, settings persistence, and Windows-specific integrations are not implemented yet.
 
@@ -321,7 +321,7 @@ For every stage, follow this workflow:
 
 ### Stage 10 — Repository tests
 
-- **Status:** Next
+- **Status:** Complete
 - **Objective:** Verify SQLite persistence and repository operations.
 - **Main implementation work:**
   - Automated repository tests and test DB cleanup
@@ -342,7 +342,7 @@ For every stage, follow this workflow:
 
 ### Stage 11 — Timer UI
 
-- **Status:** Not Started
+- **Status:** Next
 - **Objective:** Build the Focus Session interface.
 - **Main implementation work:**
   - Large countdown

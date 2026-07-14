@@ -1,11 +1,12 @@
 /**
  * FocusFlow targets Windows only.
- * Keep iOS/Android project stubs disabled so the CLI does not look for them.
+ * Android/iOS app directories were removed; leave project platform stubs as empty
+ * objects because the RN CLI rejects `null` for project.ios / project.android.
  */
 module.exports = {
   project: {
-    ios: null,
-    android: null,
+    ios: {},
+    android: {},
     windows: {},
   },
 };

@@ -1,5 +1,8 @@
 import type {DeletedTask, Task, TaskPriority, TaskStatus} from '../types/task';
-import {databaseService, type DatabaseService} from '../services/DatabaseService';
+import {
+  databaseService,
+  type IDatabaseService,
+} from '../services/DatabaseService';
 import type {ITaskRepository} from './ITaskRepository';
 
 type TaskRow = {
@@ -51,7 +54,7 @@ function mapDeletedRow(row: TaskRow): DeletedTask {
  * SQLite-backed task persistence. Uses parameterized SQL only.
  */
 export class SqliteTaskRepository implements ITaskRepository {
-  constructor(private readonly db: DatabaseService = databaseService) {}
+  constructor(private readonly db: IDatabaseService = databaseService) {}
 
   async initialize(): Promise<void> {
     await this.db.initializeDatabase();

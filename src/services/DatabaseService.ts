@@ -11,6 +11,17 @@ export type QueryResult = {
   insertId: number;
 };
 
+/**
+ * Narrow database contract used by repositories.
+ * Enables Stage 10 tests to inject a fake without native SQLite.
+ */
+export type IDatabaseService = {
+  initializeDatabase(): Promise<void>;
+  executeSql(sql: string, params?: QueryParams): Promise<QueryResult>;
+  getDatabasePath?: () => string;
+  close?: () => Promise<void>;
+};
+
 type LocalAppPathsModule = {
   getLocalDatabaseDirectory?: () => string;
 };
@@ -28,7 +39,7 @@ function resolveDatabaseDirectory(): string {
 /**
  * Low-level SQLite access. No task business rules.
  */
-export class DatabaseService {
+export class DatabaseService implements IDatabaseService {
   private database: Database | null = null;
   private initializing: Promise<void> | null = null;
 
