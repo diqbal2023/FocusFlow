@@ -83,7 +83,8 @@ For every stage, follow this workflow:
 - Stages 15–21 have not started.
 - Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic, Recently Deleted trash behavior, SQLite persistence, TaskRepository unit tests, TimerService, and SessionManager.
 - Tasks persist in a local SQLite database via TaskRepository / DatabaseService.
-- Focus Session UI is wired to SessionManager / TimerService (timestamp-based). Session state is not persisted yet (no SessionRepository).
+- Focus Session UI is wired to SessionManager / TimerService (timestamp-based Pomodoro: 25/5/15 min, long break after 4 completed work sessions). Session state is not persisted yet (no SessionRepository).
+- Skipped work sessions do not count toward completed-work or long-break cycle progress (documented in SessionManager and UI).
 - Goals, statistics, settings persistence, and Windows-specific integrations are not implemented yet.
 
 ---
@@ -353,8 +354,8 @@ For every stage, follow this workflow:
   - Temporary test durations as needed for development
 - **Expected files created or modified:**
   - `src/screens/FocusScreen.tsx` and related UI components
-- **Features included:** Focus Session presentation and controls
-- **Features intentionally excluded:** Final timer service, persistence, native notifications
+- **Features included:** Focus Session presentation and controls; wired to SessionManager in Stages 12–13
+- **Features intentionally excluded:** Session persistence, native notifications
 - **Testing required:** Manual UI checks; deeper automated timer tests in Stage 13
 - **Completion criteria:** Focus Session UI is usable for work/break flow mock states
 - **Recommended Git commit message:** `Implement Focus Session timer UI`
@@ -374,8 +375,7 @@ For every stage, follow this workflow:
 - **Expected files created or modified:**
   - `src/services/TimerService.ts`
   - `src/managers/SessionManager.ts`
-  - `src/models/FocusSession.ts`
-- **Features included:** Reliable session timing and transitions
+- **Features included:** Reliable session timing and transitions; Pomodoro cycle with long-break after 4 completed work sessions
 - **Features intentionally excluded:** Native notifications (Stage 20), full statistics dashboard (Stage 16)
 - **Testing required:** Automated coverage in Stage 13
 - **Completion criteria:** Timer/session logic exists and can drive the Focus UI
@@ -394,12 +394,10 @@ For every stage, follow this workflow:
 - **Features intentionally excluded:** Real-time long-duration waits
 - **Testing required:**
   - Start, pause, resume, reset, skip
-  - One-second updates
-  - Work-to-break transition
-  - Long break after four work sessions
-  - Jest fake timers
-  - Timestamp recalculation
-- **Completion criteria:** Timer/session suites pass; prior suites remain green
+  - Work-to-break and long-break-after-four-work transitions
+  - Counter rules (skip does not count as completed work)
+  - Jest fake timers and timestamp recalculation
+- **Completion criteria:** Timer/session suites pass (72 total tests); prior suites remain green; long-break cycle resets correctly after long break completes
 - **Recommended Git commit message:** `Add timer and session tests`
 - **Dependencies on earlier stages:** Stage 12
 

@@ -5,7 +5,7 @@ Working notes for the IEEE Software Test Document.
 
 | Field | Value |
 |---|---|
-| Last updated | 2026-07-14 (Stages 11–13 Focus Session / Timer + long-break counter fix) |
+| Last updated | 2026-07-16 (Stages 1–13 integrated; Focus Session long-break counter fix) |
 | Current stage covered | Stages 1–13 (Focus Session UI, TimerService, SessionManager, timer/session tests) |
 | Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx`, `__tests__/TaskValidation.test.ts`, `__tests__/TaskManager.test.ts`, `__tests__/TaskManager.trash.test.ts`, `__tests__/TaskRepository.test.ts`, `__tests__/TimerService.test.ts`, `__tests__/SessionManager.test.ts` |
 | Primary command | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
@@ -17,11 +17,11 @@ Working notes for the IEEE Software Test Document.
 
 1. Add or change tests under `__tests__/`.
 2. Run `npm run test:windows -- --verbose > test-results.txt 2>&1`.
-3. Update sections **1–6** below to match reality only (do not invent tests).
+3. Update sections **1–6** below to match reality only (integrated format — do not add separate per-stage appendix sections; do not invent tests).
 4. Update the header table (**Last updated**, **Latest result**, source files, stage covered).
 5. Add new rows to the test case / results tables and procedure groups as needed.
 
-### Stage coverage (integrated)
+### Stage & sprint coverage
 
 | Stage | Focus | Status |
 |---|---|---|
@@ -131,7 +131,7 @@ Working notes for the IEEE Software Test Document.
 
 ## 2. TEST CASE INFORMATION
 
-Primary case catalog for Stages 1–6 is below. Stages 7–10 detail lives in the dedicated Stage 8 / 9 / 10 sections (TC_TASK_MGR_*, TC_TASK_TRASH_*, TC_TASK_REPO_*, TC_TASK_REPO_REG_*). Stages 11–13 (plus long-break counter fix) detail lives in **Stage 11–13** and the long-break fix section (TC_TIMER_*, TC_SESSION_*). All current IDs are Pass in the latest `test-results.txt` run (72/72).
+Primary case catalog for **Stages 1–13** is below (single integrated table). All cases are **Pass** in the latest `test-results.txt` run (**72/72**).
 
 | Test Case ID | Objective | Input | Expected Output | Execution Steps | Actual Output | Pass/Fail |
 |---|---|---|---|---|---|---|
@@ -162,10 +162,51 @@ Primary case catalog for Stages 1–6 is below. Stages 7–10 detail lives in th
 | TC_TASK_VAL_06 | Reject bad estimated duration | `abc`, `0`, `1441` | estimatedDuration errors | 1. Call each case 2. Assert | Rejected | Pass |
 | TC_TASK_VAL_07 | Reject >10 labels after sanitize | 11 distinct labels | Labels error; sanitized length 11 | 1. Call 2. Assert | Rejected | Pass |
 | TC_TASK_VAL_08 | Sanitize blank/duplicate labels | `["School"," school ","","Homework"]` | `["School","Homework"]` | 1. `sanitizeLabels` / validate 2. Assert | Sanitized | Pass |
-| TC_TASK_MGR_01–10 | TaskManager business rules | See Stage 8 section | See Stage 8 section | Run Jest suite | All Pass | Pass |
-| TC_TASK_TRASH_01–05 | TaskManager trash retention API | See Stage 8 / trash suite | See trash suite expectations | Run Jest suite | All Pass | Pass |
-| TC_TASK_REPO_01–10 | SqliteTaskRepository persistence API | See Stage 10 section | See Stage 10 section | Run Jest suite | All Pass | Pass |
-| TC_TASK_REPO_REG_01–03 | Stage 9 / repository regressions | See Stage 10 section | See Stage 10 section | Run Jest suite | All Pass | Pass |
+| TC_TASK_MGR_01 | Creates a valid task and adds it to the collection | Valid `TaskFormData` via `createTask` | `success: true`; task prepended Pending | Run `TaskManager.test.ts` | Task created | Pass |
+| TC_TASK_MGR_02 | Rejects invalid task input | Empty title via `createTask` | `success: false`; validation errors | Run `TaskManager.test.ts` | Rejected | Pass |
+| TC_TASK_MGR_03 | Updates task preserving ID | `updateTask` with new title | Same `id`; fields updated | Run `TaskManager.test.ts` | ID preserved | Pass |
+| TC_TASK_MGR_04 | Preserves fields during edit | Edit with status/priority/due/labels | Non-status fields updated; status preserved | Run `TaskManager.test.ts` | Fields preserved | Pass |
+| TC_TASK_MGR_05 | Preserves up to 10 labels | Create/update with 10 labels | Comma-separated string stored | Run `TaskManager.test.ts` | 10 labels stored | Pass |
+| TC_TASK_MGR_06 | Rejects more than 10 labels | 11 labels after sanitize | Labels validation error | Run `TaskManager.test.ts` | Rejected | Pass |
+| TC_TASK_MGR_07 | Completes task without side effects | `completeTask` on In Progress | Status Completed only | Run `TaskManager.test.ts` | Completed | Pass |
+| TC_TASK_MGR_08 | Soft-deletes selected task only | `moveToTrash` on one task | Only selected task in trash | Run `TaskManager.test.ts` | Soft-deleted | Pass |
+| TC_TASK_MGR_09 | Returns task by ID | `getTaskById` | Matching task or undefined | Run `TaskManager.test.ts` | Correct lookup | Pass |
+| TC_TASK_MGR_10 | Does not mutate original collection | Create/update/trash | New array returned; original unchanged | Run `TaskManager.test.ts` | Immutability | Pass |
+| TC_TASK_TRASH_01 | moveToTrash stamps deletedAt | Soft-delete active task | Removed from active; `deletedAt` set | Run `TaskManager.trash.test.ts` | In trash | Pass |
+| TC_TASK_TRASH_02 | restoreTask returns task to active | Restore soft-deleted task | Task back in active list | Run `TaskManager.trash.test.ts` | Restored | Pass |
+| TC_TASK_TRASH_03 | purgeExpiredDeletedTasks removes old items | Trash older than retention | Expired items removed | Run `TaskManager.trash.test.ts` | Purged | Pass |
+| TC_TASK_TRASH_04 | getDaysRemainingInTrash reports days | Deleted task with known date | Whole days remaining | Run `TaskManager.trash.test.ts` | Days reported | Pass |
+| TC_TASK_TRASH_05 | permanentlyDeleteTask removes trash item | Permanent delete before expiry | Gone from trash | Run `TaskManager.trash.test.ts` | Removed | Pass |
+| TC_TASK_REPO_01 | Initializes DB and creates tables safely | `initialize` twice | `CREATE TABLE IF NOT EXISTS`; idempotent | Run `TaskRepository.test.ts` | Schema created | Pass |
+| TC_TASK_REPO_02 | Creates task with parameterized SQL | `createTask` | `?` placeholders; row inserted | Run `TaskRepository.test.ts` | Created | Pass |
+| TC_TASK_REPO_03 | getAllTasks maps rows to Task | Seed rows | Typed Task objects | Run `TaskRepository.test.ts` | Mapped | Pass |
+| TC_TASK_REPO_04 | getTaskById returns correct task | Lookup by id | Matching task | Run `TaskRepository.test.ts` | Found | Pass |
+| TC_TASK_REPO_05 | updateTask preserves id | Update fields | Same id; fields changed | Run `TaskRepository.test.ts` | Updated | Pass |
+| TC_TASK_REPO_06 | Persists labels (≤10) | Task with label string | Comma-separated round-trip | Run `TaskRepository.test.ts` | Labels persisted | Pass |
+| TC_TASK_REPO_07 | moveTaskToTrash soft-deletes only selected | Trash one of two tasks | One in trash; other active | Run `TaskRepository.test.ts` | Soft-deleted | Pass |
+| TC_TASK_REPO_08 | Empty DB returns [] | No rows | Empty array | Run `TaskRepository.test.ts` | `[]` | Pass |
+| TC_TASK_REPO_09 | Propagates database errors | Failing execute | Useful error thrown | Run `TaskRepository.test.ts` | Error surfaced | Pass |
+| TC_TASK_REPO_10 | Parameterized SQL (no concatenation) | Hostile title in create | Bound as parameter | Run `TaskRepository.test.ts` | Safe SQL | Pass |
+| TC_TASK_REPO_REG_01 | DB path fallback without LocalAppPaths | `getDatabasePath` without native module | Fallback path (DEF-005) | Run `TaskRepository.test.ts` | Fallback works | Pass |
+| TC_TASK_REPO_REG_02 | Re-init does not wipe rows | `initialize` with existing data | Rows retained | Run `TaskRepository.test.ts` | Data kept | Pass |
+| TC_TASK_REPO_REG_03 | Missing update fails cleanly | `updateTask` unknown id | Throws; other rows unchanged | Run `TaskRepository.test.ts` | Safe failure | Pass |
+| TC_TIMER_01 | Timer starts correctly | `configure` + `start` | Running; full remaining time | Run `TimerService.test.ts` with fake timers | Started | Pass |
+| TC_TIMER_02 | Pause freezes remaining time | Start; pause; advance clock | Remaining unchanged while paused | Run `TimerService.test.ts` | Frozen | Pass |
+| TC_TIMER_03 | Resume continues countdown | Pause then resume | Countdown continues from paused value | Run `TimerService.test.ts` | Resumed | Pass |
+| TC_TIMER_04 | Reset restores initial duration | Start; tick; reset | Idle; full duration restored | Run `TimerService.test.ts` | Reset | Pass |
+| TC_TIMER_05 | Skip clears current segment | Start; skip | Idle; remaining 0 | Run `TimerService.test.ts` | Skipped | Pass |
+| TC_TIMER_06 | Work finishes → short break | Complete work via tick at duration | Mode shortBreak; work count +1 | Run `SessionManager.test.ts` | Short break | Pass |
+| TC_TIMER_07 | 4th work → long break | Complete 4 work sessions | Mode longBreak; 15m duration | Run `SessionManager.test.ts` | Long break | Pass |
+| TC_TIMER_08 | Timestamp accuracy under delay | Single tick after 7.5s | Remaining = duration − elapsed | Run `TimerService.test.ts` | Accurate | Pass |
+| TC_SESSION_01 | Tracks completed work sessions | Two natural work completions | `completedWorkSessions` = 2 | Run `SessionManager.test.ts` | Count correct | Pass |
+| TC_SESSION_02 | Selected task stays associated | selectTask; start; skip | Task id/title unchanged | Run `SessionManager.test.ts` | Task kept | Pass |
+| TC_SESSION_03 | Interrupted sessions recorded | Reset/skip mid-progress | `interruptedSessions` increments | Run `SessionManager.test.ts` | Interrupted | Pass |
+| TC_SESSION_04 | Default Pomodoro durations | New SessionManager | 25/5/15 min; starts work | Run `SessionManager.test.ts` | Defaults OK | Pass |
+| TC_SESSION_05 | Skipped work not completed | Start work; skip | Work count stays 0 | Run `SessionManager.test.ts` | Not counted | Pass |
+| TC_SESSION_06 | Pause/reset not completed | Start; pause; reset | Work count stays 0 | Run `SessionManager.test.ts` | Not counted | Pass |
+| TC_SESSION_07 | Long break finish resets cycle | Complete long break | Work mode; cycle 0; break +1 | Run `SessionManager.test.ts` | Cycle reset | Pass |
+| TC_SESSION_08 | No duplicate complete at zero | Multiple ticks at end | Single completion | Run `SessionManager.test.ts` | Once only | Pass |
+| TC_SESSION_09 | Long break pause/resume/reset/skip | Controls on long break | All controls work; skip → work | Run `SessionManager.test.ts` | Controls OK | Pass |
 
 ---
 
@@ -225,9 +266,9 @@ npm run test:windows -- --verbose > test-results.txt 2>&1
 - **Steps to Execute:**
   1. Run preferred command
   2. Confirm suites `TaskManager unit tests` (TC_TASK_MGR_01–10) and `TaskManager Recently Deleted` (TC_TASK_TRASH_01–05)
-- **Post-Execution Actions:** Record pass/fail; detailed cases also listed under Stage 8 section
+- **Post-Execution Actions:** Record pass/fail in Section 4
 
-### TP-TASK-REPO — SqliteTaskRepository (Stage 10)
+### TP-TASK-REPO — SqliteTaskRepository (Stages 9–10)
 
 - **Procedure ID:** TP-TASK-REPO
 - **Description:** Verify repository initialize/CRUD/trash mapping and parameterized SQL via fake DatabaseService
@@ -235,58 +276,45 @@ npm run test:windows -- --verbose > test-results.txt 2>&1
 - **Steps to Execute:**
   1. Run preferred command
   2. Confirm suite `SqliteTaskRepository` executes TC_TASK_REPO_01–10 and TC_TASK_REPO_REG_01–03
-- **Post-Execution Actions:** Record pass/fail; detailed cases listed under Stage 10 section
+- **Post-Execution Actions:** Record pass/fail in Section 4
+
+### TP-FOCUS — Focus Session / Timer (Stages 11–13)
+
+- **Procedure ID:** TP-FOCUS
+- **Description:** Verify TimerService timestamp countdown and SessionManager Pomodoro flow (work / short break / long break, counters, skip rules)
+- **Test Environment:** Jest with `jest.useFakeTimers()` / `jest.setSystemTime()`; optional manual `npx react-native run-windows` for UI spot-check
+- **Steps to Execute:**
+  1. Run preferred command
+  2. Confirm suites `TimerService` (TC_TIMER_01–05, TC_TIMER_08) and `SessionManager` (TC_TIMER_06–07, TC_SESSION_01–09)
+  3. For manual UI: open Focus Session; verify Start/Pause/Resume/Skip/Reset and countdown updates
+- **Post-Execution Actions:** Record pass/fail; note that Skip does not increment completed-work counters (by design)
 
 ---
 
 ## 4. TEST RESULTS INFORMATION
 
-Latest full automated run (`test-results.txt`): **7 suites / 55 tests passed / 0 failed / 0 snapshots**.
-
-Detail for Stages 1–6 UI/validation cases appears below. Manager / repository case results are summarized as Pass ranges and fully documented in Stage 8 and Stage 10 sections.
+Latest full automated run (`test-results.txt`): **9 suites / 72 tests passed / 0 failed / 0 snapshots**.
 
 | Test Case ID | Description | Result | Test Log (brief) | Defect ID |
 |---|---|---|---|---|
-| TC_UI_01 | Button press calls handler | Pass | Assertion: `onPress` ×1 | N/A |
-| TC_UI_02 | Disabled button ignores press | Pass | Assertion: not called | N/A |
-| TC_UI_03 | Input label shown | Pass | Found “Task name” | N/A |
-| TC_UI_04 | Input error shown | Pass | Found “Task name is required.” | N/A |
-| TC_UI_05 | PageHeader title/subtitle | Pass | Found “Tasks” + subtitle | N/A |
-| TC_NAV_01 | Default Tasks screen | Pass | Subtitle + `nav-tasks` selected | N/A |
-| TC_NAV_02 | Focus Session nav | Pass | Focus subtitle present | N/A |
-| TC_NAV_03 | Statistics nav | Pass | Statistics subtitle present | N/A |
-| TC_NAV_04 | Goals nav | Pass | Goals subtitle present | N/A |
-| TC_NAV_05 | Settings nav | Pass | Settings subtitle present | N/A |
-| TC_NAV_06 | Active sidebar updates | Pass | Selected state transitions verified | N/A |
-| TC_TASK_UI_01 | Sample tasks render | Pass | 3 sample titles + statuses found | N/A |
-| TC_TASK_UI_02 | Status advances to Completed | Pass | sample-1 Pending → In Progress → Completed | N/A |
-| TC_TASK_UI_03 | Delete moves to Recently Deleted | Pass | sample-2 removed from active; shown in trash | N/A |
-| TC_TASK_UI_04 | Edit loads form | Pass | Form values match Math Homework | N/A |
-| TC_TASK_UI_05 | Save adds task | Pass | “Write Unit Tests” visible in list | N/A |
-| TC_TASK_UI_06 | Restore from trash | Pass | sample-2 restored to active list | N/A |
-| TC_TASK_UI_07 | Permanent delete from trash | Pass | sample-2 removed permanently | N/A |
-| TC_TASK_FORM_01 | Invalid save blocked | Pass | “Title is required.”; task not listed | N/A |
-| TC_TASK_VAL_01 | Empty/whitespace title rejected | Pass | Title error; `isValid=false` | N/A |
-| TC_TASK_VAL_02 | Valid task accepted | Pass | Sanitized fields populated | N/A |
-| TC_TASK_VAL_03 | Trim title/description/labels | Pass | Trimmed `sanitizedData` | N/A |
-| TC_TASK_VAL_04 | Length limits enforced | Pass | Title/description errors | N/A |
-| TC_TASK_VAL_05 | Invalid priority rejected | Pass | Priority error for `Urgent` | N/A |
-| TC_TASK_VAL_06 | Duration rules enforced | Pass | Errors for abc / 0 / 1441 | N/A |
-| TC_TASK_VAL_07 | >10 labels rejected | Pass | Labels error after sanitize | N/A |
-| TC_TASK_VAL_08 | Label sanitize/dedupe | Pass | `["School","Homework"]` | N/A |
-| TC_TASK_MGR_01–10 | TaskManager unit tests | Pass | See Stage 8 | N/A |
-| TC_TASK_TRASH_01–05 | TaskManager trash tests | Pass | See trash suite / Stage 8 | N/A |
-| TC_TASK_REPO_01–10 | SqliteTaskRepository tests | Pass | See Stage 10 | N/A |
-| TC_TASK_REPO_REG_01–03 | Repository regressions | Pass | See Stage 10 | N/A |
-| TC_TIMER_01–08 | TimerService + session transitions | Pass | See Stage 11–13 | N/A |
-| TC_SESSION_01–09 | SessionManager counters / long break | Pass | See Stage 11–13 + long-break fix | N/A |
+| TC_UI_01–05 | Shared UI components | Pass | All assertions green | N/A |
+| TC_NAV_01–06 | Navigation shell | Pass | All assertions green | N/A |
+| TC_TASK_UI_01–07 | Tasks screen interactions | Pass | Async load + trash flows | N/A |
+| TC_TASK_FORM_01 | Invalid save blocked | Pass | Validation error shown | N/A |
+| TC_TASK_VAL_01–08 | Task validation module | Pass | All rules enforced | N/A |
+| TC_TASK_MGR_01–10 | TaskManager unit tests | Pass | Business rules verified | N/A |
+| TC_TASK_TRASH_01–05 | TaskManager trash API | Pass | Soft-delete / restore / purge | N/A |
+| TC_TASK_REPO_01–10 | SqliteTaskRepository CRUD | Pass | Parameterized SQL + mapping | N/A |
+| TC_TASK_REPO_REG_01–03 | Repository regressions | Pass | Path fallback; re-init; missing update | N/A |
+| TC_TIMER_01–05, TC_TIMER_08 | TimerService | Pass | Timestamp countdown | N/A |
+| TC_TIMER_06–07, TC_SESSION_01–09 | SessionManager / Pomodoro | Pass | Modes, counters, long-break cycle | N/A |
 
 ---
 
 ## 5. DEFECT TRACKING INFORMATION
 
 Latest automated product test run: **0 failed** (**9 suites / 72 tests passed**).  
-Stages 1–13: product defects found during Stages 9–10 are fixed (DEF-005–008). DEF-004 remains an open deploy workaround when the app locks DLLs. Focus Session counter/long-break follow-up is documented in the long-break fix section.
+Stages 1–13 complete. Product defects from Stages 9–10 are fixed (DEF-005–008). DEF-004 remains an open deploy workaround when the app locks DLLs.
 
 Historical defects found during setup / earlier automated testing (and fixed) are logged below.
 
@@ -299,7 +327,9 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | DEF-005 | `@dr.pogodin/react-native-fs` failed Windows MSBuild with `unknown command 'codegen-windows'` during Stage 9 SQLite path setup. | Major | 1. Install `@dr.pogodin/react-native-fs` 2. Run `npx react-native run-windows` | Fixed | Removed the package. Added minimal native module `LocalAppPaths` (`windows/FocusFlow/LocalAppPaths.h`) returning ApplicationData LocalFolder (or `%LOCALAPPDATA%\FocusFlow` fallback). Regenerated/cleaned autolink after uninstall. |
 | DEF-006 | `react-native-turbo-sqlite` Windows project uses Platform Toolset `v143` (VS 2022); FocusFlow builds with `v145`, causing MSB8020. | Major | 1. Install `react-native-turbo-sqlite` 2. Build FocusFlow Windows solution on VS with v145 only | Fixed | Retarget `ReactNativeTurboSqlite.vcxproj` to `v145` via `scripts/patch-turbo-sqlite-windows.js` and `postinstall`. |
 | DEF-007 | `LocalAppPaths.h` failed to compile: `u8string()` returns `std::u8string` which cannot convert to `std::string`. | Minor | 1. Build FocusFlow after adding LocalAppPaths helper | Fixed | Return `winrt::to_string(dir.wstring())` instead of `u8string()`. |
-| DEF-008 | `react-native.config.js` used `project.ios: null` / `project.android: null`, rejected by RN CLI (`must be of type object`), blocking Windows runs after Windows-only cleanup. | Major | 1. Set ios/android to null in react-native.config.js 2. Run `npx react-native run-windows` | Fixed | Use empty objects `{}` for ios/android. Found during Stage 10 launch verification (D_STAGE10_01). |
+| DEF-008 | `react-native.config.js` used `project.ios: null` / `project.android: null`, rejected by RN CLI (`must be of type object`), blocking Windows runs after Windows-only cleanup. | Major | 1. Set ios/android to null in react-native.config.js 2. Run `npx react-native run-windows` | Fixed | Use empty objects `{}` for ios/android. |
+| D_STAGE10_01 | `react-native.config.js` null ios/android blocked `run-windows` (same as DEF-008). | Major | Set ios/android to `null`; run `run-windows` | Fixed | Use `{}` instead of `null`. |
+| D_STAGE10_02 | Jest collected `__tests__/helpers/FakeDatabaseService.ts` as a test suite. | Minor | Place helper under `__tests__/` without `.test` suffix | Fixed | Moved to `src/testing/FakeDatabaseService.ts`. |
 
 ### Defect field notes (for STD authors)
 
@@ -338,666 +368,51 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | TimerService | `__tests__/TimerService.test.ts` | TC_TIMER_01–05, TC_TIMER_08 |
 | SessionManager | `__tests__/SessionManager.test.ts` | TC_TIMER_06–07, TC_SESSION_01–09 |
 
-### Stage 6 quick reference
-
-| Item | Detail |
-|---|---|
-| Feature | Task input validation + TasksScreen invalid-save behavior |
-| Module | `src/utils/taskValidation.ts` |
-| New cases | TC_TASK_VAL_01–08, TC_TASK_FORM_01 |
-| Command | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
-| Result | All 9 new cases Pass; prior 16 remained Pass |
-| Fixes | None required for Stage 6 |
-
-### Stage 7 — TaskManager Refactor
-
-| Item | Detail |
-|---|---|
-| Feature implemented | `TaskManager` application-layer business logic; `TasksScreen` delegates create/update/delete/complete/form helpers |
-| Purpose | Move task rules out of the presentation layer without adding SQLite or repository persistence |
-| Files created | `src/managers/TaskManager.ts` |
-| Files modified | `src/screens/TasksScreen.tsx`, `documentation/testing-notes.md`, `test-results.txt` |
-| Existing tests rerun | All prior suites: navigation, shared UI, TasksScreen UI, task validation |
-| Test command used | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
-| Test totals | 4 suites passed; 25 tests passed; 0 failed; 0 snapshots |
-| Defects encountered during refactoring | None |
-| Fixes applied | No corrective fixes required |
-| Overall stage status | Stage 7 complete and stable; ready for Stage 8 (TaskManager unit tests). Still using temporary React state (no SQLite yet). |
-
----
-
-## Stage 8 - TaskManager Unit Tests
-
-### 1. Stage
-- Stage 8
-
-### 2. Feature tested
-- TaskManager business logic
-
-### 3. Test scope
-- Task creation
-- Validation handling through `createTask` / `updateTask`
-- Task editing and ID preservation
-- Completion behavior via `completeTask` / `advanceTaskStatus`
-- Soft-deletion via `moveToTrash` (no hard `deleteTask` method exists)
-- Label preservation (comma-separated string storage after sanitization)
-- Maximum 10-label rule enforced through TaskManager + validation
-- Collection immutability for create/update/complete/trash mutations
-- Lookup via `getTaskById`
-- `prepareTaskForEditing` field mapping used during edit coverage
-
-### 4. Test objectives
-- Verify task business logic independently of the UI
-- Verify Stage 7 refactoring did not change expected behavior
-- Verify label handling is preserved through create/update
-- Confirm existing application tests continue to pass
-
-### 5. Actual TaskManager API
-Public methods covered by Stage 8 TC_TASK_MGR tests:
-- `createTask`
-- `updateTask`
-- `prepareTaskForEditing`
-- `completeTask`
-- `moveToTrash`
-- `getTaskById`
-
-Related methods already covered by `__tests__/TaskManager.trash.test.ts` (kept as-is):
-- `restoreTask`
-- `permanentlyDeleteTask`
-- `purgeExpiredDeletedTasks`
-- `getDaysRemainingInTrash`
-
-Other public methods present but not expanded in TC_TASK_MGR_01–10 (still exercised elsewhere or unused by Stage 8 focus):
-- `getInitialTasks`
-- `clearFormData`
-- `sortTasks`
-- `filterTasks`
-- `advanceTaskStatus` (aliased by `completeTask`)
-
-### 6. Files tested
-- `src/managers/TaskManager.ts`
-- `src/types/task.ts`
-- `src/utils/taskValidation.ts` (invoked by TaskManager; not re-tested in depth)
-- `__tests__/TaskManager.test.ts` (new)
-- Existing regression suites remain green
-
-### 7. Testing tools
-- Jest
-- TypeScript
-- React Native for Windows Jest configuration (`jest.config.windows.js`)
-
-### 8. Exact command used
-```
-npm run test:windows -- --verbose > test-results.txt 2>&1
-```
-
-### 9. Test cases added
-
-| ID | Name |
-|---|---|
-| TC_TASK_MGR_01 | Creates a valid task and adds it to the collection |
-| TC_TASK_MGR_02 | Rejects invalid task input or returns the appropriate validation failure |
-| TC_TASK_MGR_03 | Updates an existing task while preserving its task ID |
-| TC_TASK_MGR_04 | Preserves task fields during editing, including status, priority, due date, estimated duration, description, and labels |
-| TC_TASK_MGR_05 | Preserves up to 10 task labels during create and edit operations |
-| TC_TASK_MGR_06 | Does not allow more than 10 labels after sanitization or validation |
-| TC_TASK_MGR_07 | Marks a task as completed without modifying unrelated task fields |
-| TC_TASK_MGR_08 | Deletes the selected task without altering unrelated tasks (soft-delete via moveToTrash) |
-| TC_TASK_MGR_09 | Returns or identifies the correct task by ID |
-| TC_TASK_MGR_10 | Returns new arrays or objects instead of mutating the original task collection |
-
-### 10. Expected outcomes
-- Valid create prepends a Pending task and returns `success: true`
-- Invalid create returns `success: false`, unchanged collection reference, and validation errors
-- Update keeps the same task `id` and applies form fields
-- Edit preserves `status`; other editable fields follow prepared/updated form values
-- Exactly 10 labels are stored as a comma-separated string after create/update
-- More than 10 labels fails create/update with a labels error
-- Completing an In Progress task sets status to Completed only
-- Soft-delete moves only the selected task into trash with `deletedAt`
-- `getTaskById` returns the matching task or `undefined`
-- Mutations return new arrays/objects without mutating the original collection
-
-### 11. Actual outcomes
-- From `test-results.txt`: all TC_TASK_MGR_01–10 passed
-- Prior suites (navigation, shared UI, TasksScreen, validation, trash) remained passed
-
-### 12. Pass/fail status
-
-| Test | Status |
-|---|---|
-| TC_TASK_MGR_01 | Pass |
-| TC_TASK_MGR_02 | Pass |
-| TC_TASK_MGR_03 | Pass |
-| TC_TASK_MGR_04 | Pass |
-| TC_TASK_MGR_05 | Pass |
-| TC_TASK_MGR_06 | Pass |
-| TC_TASK_MGR_07 | Pass |
-| TC_TASK_MGR_08 | Pass |
-| TC_TASK_MGR_09 | Pass |
-| TC_TASK_MGR_10 | Pass |
-
-### 13. Defects found
-- None in TaskManager business logic during Stage 8
-- One test TypeScript issue: `structuredClone` was not recognized by the project TypeScript config; replaced with a shallow map copy in the test only
-
-### 14. Fixes made
-- Corrective product-code fixes: none required
-- Test fix: replaced `structuredClone` with `original.map(task => ({...task}))` in TC_TASK_MGR_10 so `tsc --noEmit` succeeds
-
-### 15. Final totals
-| Metric | Value |
-|---|---|
-| Test suites | 6 passed, 6 total |
-| Total tests | 42 |
-| Passed | 42 |
-| Failed | 0 |
-| Snapshots | 0 |
-
-### 16. Risks and contingencies
-> Historical Stage 8 snapshot. SQLite repository work and repository tests were completed in Stages 9–10; current risk posture is in Section 1 and Stage 10.
-
-- At Stage 8 completion, TaskManager still used temporary in-memory data
-- Repository and SQLite behavior were not yet tested at that time
-- Future persistence integration could expose new issues
-- Stage 8 tests did not verify app restart persistence
-- Native Windows behavior remained outside Stage 8
-- Trash retention / restore / permanent delete were covered in a separate suite (`TaskManager.trash.test.ts`) and UI tests, not fully duplicated in TC_TASK_MGR
-
-### 17. Pass/fail criteria
-- Pass: returned behavior matches the expected business rule and Jest assertion passes
-- Fail: returned behavior differs, input is improperly handled, mutation occurs unexpectedly, or the test suite cannot execute
-
-### 18. Overall stage status
-- Stage 8 complete; later superseded as current gate by Stages 9–10 (SQLite + repository tests)
-- At Stage 8 exit: TaskManager was ready for SQLite repository work
-
-### 19. Features not yet tested
-> Historical Stage 8 snapshot. Several items below were covered in Stages 9–10.
-
-- SQLite repository (done in Stage 9)
-- Persistent storage (done in Stage 9; repository tests in Stage 10)
-- Parent/subtask completion business rules (not implemented)
-- Timer
-- Goals
-- Statistics
-- Settings persistence
-- Notifications
-- Windows-specific features
-- Final integration
-Notes on Stage 7 extras discovered while writing Stage 8:
-- Labels are sanitized to a `string[]` in validation, then stored on `Task` as a comma-separated `string` (`labelsToStorage`)
-- Delete is soft-delete (`moveToTrash`) with Recently Deleted restore / permanent delete / 30-day purge
-- Status flow is Pending → In Progress → Completed (`advanceTaskStatus` / `completeTask`)
-- Helper APIs exist: `sortTasks`, `filterTasks`, seed `getInitialTasks`, form helpers
-- `parentTaskId` is preserved as a string field; no subtask completion gating exists yet
-- Labels and parent/subtask relationships remain separate concepts
-
----
-
-## Stage 9 - SQLite Repository and Task Persistence
-
-### 1. Stage
-- Stage 9
-
-### 2. Feature implemented
-- Local SQLite database (`react-native-turbo-sqlite`)
-- `DatabaseService` for connection + schema
-- `SqliteTaskRepository` / `ITaskRepository` / `InMemoryTaskRepository`
-- Persistent task storage (active + Recently Deleted tables)
-- TaskManager repository integration (async)
-- TasksScreen load/save/error/loading integration
-
-### 3. Test scope
-- Existing automated regression tests (all Stage 1–8 suites)
-- Database initialization (idempotent `CREATE TABLE IF NOT EXISTS`)
-- Task loading on mount
-- Task creation/edit/delete persistence (manual SQLite + app restart cycle)
-- Label persistence as comma-separated text
-- Error handling surfaces on TasksScreen
-- Jest mocks for native SQLite
-
-### 4. Test objectives
-- Confirm task data is stored locally in SQLite
-- Confirm tasks/seeds survive application process restart without wipe
-- Confirm TaskManager uses the repository (no SQL in manager/UI)
-- Confirm existing automated behavior remains stable
-
-### 5. Files created and modified
-Created:
-- `src/services/DatabaseService.ts`
-- `src/repositories/ITaskRepository.ts`
-- `src/repositories/SqliteTaskRepository.ts`
-- `src/repositories/InMemoryTaskRepository.ts`
-- `windows/FocusFlow/LocalAppPaths.h`
-- `jest.setup.js`
-- `scripts/patch-turbo-sqlite-windows.js`
-- `scripts/stage9-persistence-check.py` (manual verification helper)
-
-Modified:
-- `src/managers/TaskManager.ts`
-- `src/screens/TasksScreen.tsx`
-- `__tests__/TaskManager.test.ts`
-- `__tests__/TaskManager.trash.test.ts`
-- `__tests__/TasksScreen.test.tsx`
-- `__tests__/App.test.tsx`
-- `jest.config.windows.js`
-- `package.json` (+ `postinstall`)
-- `windows/FocusFlow/FocusFlow.cpp`
-- `windows/FocusFlow/pch.h`
-- `windows/FocusFlow/AutolinkedNativeModules.g.cpp`
-- `windows/FocusFlow.sln` (removed stale ReactNativeFs)
-- `documentation/testing-notes.md`
-- `documentation/plan.md`
-- `test-results.txt`
-
-### 6. SQLite package
-| Item | Detail |
-|---|---|
-| Name | `react-native-turbo-sqlite` |
-| Installed version | `0.6.2` |
-| Compatibility reason | Explicit Windows + New Architecture (C++ TurboModule). Project already has `RnwNewArch=true`. |
-| Native configuration required | Autolinking; PlatformToolset patch to `v145`; minimal `LocalAppPaths` native helper for writable LocalFolder path |
-| Not used | Expo SQLite, AsyncStorage, Firebase/Supabase/Realm, `@dr.pogodin/react-native-fs` (build failure DEF-005) |
-| Limitation | Package README marks Windows support experimental |
-
-### 7. Database schema
-Tables:
-- `tasks` — primary key `id` (TEXT)
-- `deleted_tasks` — primary key `id` (TEXT) + `deleted_at` (TEXT ISO)
-
-Fields on both task shapes: `title`, `description`, `priority`, `status`, `due_date`, `estimated_duration_minutes`, `labels`, `parent_task_id`
-
-Label storage: Option A — single TEXT column storing the same comma-separated string as `Task.labels` (preserves ≤10 labels via validation; simple to migrate later)
-
-SQL: all repository writes use parameterized `?` placeholders.
-
-Path: `{LocalFolder}/focusflow.db` (Package LocalState observed: `%LOCALAPPDATA%\Packages\FocusFlow_wk8nzwejgnza6\LocalState\focusflow.db`)
-
-### 8. Testing tools
-- Jest + React Native Testing Library
-- TypeScript
-- React Native for Windows
-- `react-native-turbo-sqlite`
-- Manual Windows restart checks + Python `sqlite3` helper
-
-### 9. Exact automated test command
-```
-npm run test:windows -- --verbose > test-results.txt 2>&1
-```
-
-### 10. Automated results
-| Metric | Value |
-|---|---|
-| Test suites | 6 passed, 6 total |
-| Total tests | 42 |
-| Passed | 42 |
-| Failed | 0 |
-| Snapshots | 0 |
-
-### 11. Manual persistence procedure
-Steps executed:
-1. `npx react-native run-windows` — build/deploy/launch succeeded after DEF-005/006/007 fixes
-2. Confirmed DB file created and seeded with sample tasks via app initialize
-3. Closed FocusFlow process
-4. Inserted `SQLite Persistence Test` into `tasks` using the same schema/SQL shape as `SqliteTaskRepository`
-5. Relaunched FocusFlow.exe without redeploy
-6. Closed app; confirmed row remained
-7. Updated title/description/priority; relaunched; confirmed edited values remained
-8. Deleted row; relaunched; confirmed task gone and samples still present (no reseeding wipe)
-
-Expected: create/edit/delete survive restart; empty-table seed does not overwrite existing data.
-
-Actual:
-- Create survived restart — Pass
-- Edit survived restart — Pass
-- Delete survived restart — Pass
-- Samples retained — Pass
-
-Notes: Full click-through Add/Edit/Delete in the UI was not automated. End-to-end UI persistence should still be spot-checked manually in Stage 10 if desired. Seed write on first launch proved the live `TaskManager` → repository → SQLite create path.
-
-### 12. Defects found
-- DEF-005, DEF-006, DEF-007 (see defect table) — all fixed during Stage 9
-
-### 13. Fixes made
-- Removed incompatible `react-native-fs`
-- Added `LocalAppPaths` for LocalFolder path
-- Added postinstall PlatformToolset patch for turbo-sqlite
-- Cleaned stale autolink/solution references
-- Made TaskManager async + repository-backed; updated Jest suites/mocks accordingly
-
-### 14. Risks and contingencies
-- Native SQLite package Windows support is experimental
-- Toolset patch required after every fresh install (`postinstall`)
-- Database migration risk for future schema changes
-- Corrupt local database recovery not implemented
-- Async loading failures possible if native modules fail
-- Jest uses InMemoryTaskRepository / mocks (no real native SQLite in CI)
-- Full TC_REPO suite deferred to Stage 10
-- `run-windows` redeploy can wipe package LocalState (known RNW behavior)
-
-### 15. Pass/fail criteria
-- Pass: tasks are saved, loaded, updated, and deleted correctly and survive process restart
-- Fail: data lost, unexpected field changes, unresolved init errors, or app cannot initialize DB
-
-### 16. Overall stage status
-- Stage 9 complete; repository unit tests followed in Stage 10
-- Automated regression green; Windows app builds and launches with SQLite
-
-### 17. Features not yet tested
-> Historical Stage 9 snapshot. Repository automated suite completed in Stage 10.
-
-- Full repository unit/integration suite (done in Stage 10)
-- Migration behavior
-- Large datasets
-- Corrupt database recovery
-- Full UI click-path persistence checklist (partial/manual helper used)
-- Timer / Goals / Statistics / Settings persistence / notifications / final integration
-
----
-
-## Stage 10 - TaskRepository Tests
-
-### 1. Stage
-- Stage 10
-
-### 2. Feature tested
-- `SqliteTaskRepository`
-- `DatabaseService` interaction via injected `IDatabaseService`
-- SQLite row mapping into `Task` / `DeletedTask`
-- Parameterized SQL
-- Soft-delete trash persistence
-
-### 3. Test scope
-- Initialization / idempotent schema
-- Create / read all / read by ID / update
-- Soft delete (`moveTaskToTrash`) instead of hard delete
-- Label persistence (comma-separated string storage)
-- Empty results
-- Error wrapping / missing-update failure
-- Parameterized queries / SQL injection-as-text
-- Regression checks for Stage 9 defects where automatable
-
-### 4. Test objectives
-- Verify repository correctness independently from UI
-- Confirm SQL values are parameterized
-- Confirm rows map correctly into typed Task objects
-- Confirm Stage 9 defect fixes remain effective where testable
-- Confirm prior suites continue to pass
-
-### 5. Actual repository API tested
-Public methods exercised:
-- `initialize`
-- `createTask`
-- `getAllTasks`
-- `getTaskById`
-- `updateTask`
-- `moveTaskToTrash` / `getDeletedTasks`
-- `countTasks`
-
-Also covered indirectly:
-- `DatabaseService.getDatabasePath` fallback (REG_01)
-
-### 6. Database schema tested
-| Item | Detail |
-|---|---|
-| Tables | `tasks`, `deleted_tasks` |
-| Primary key | `id` TEXT (application-generated, not SQLite AUTOINCREMENT) |
-| Fields | title, description, priority, status, due_date, estimated_duration_minutes, labels, parent_task_id |
-| Trash timestamp | `deleted_at` ISO text on `deleted_tasks` only |
-| Labels | Option A comma-separated TEXT matching `Task.labels` (not arrays on the model) |
-| createdAt / completedAt | Not present in current model |
-
-### 7. Stage 9 defects
-
-| Defect ID | Description | Severity | Steps | Root cause | Fix | Status | Regression |
-|---|---|---|---|---|---|---|---|
-| D_STAGE9_01 (DEF-005) | `@dr.pogodin/react-native-fs` failed with `unknown command 'codegen-windows'` | Major | Install package; `run-windows` | Incompatible native FS package for current RNW | Removed package; added `LocalAppPaths` + JS fallback path `.` | Fixed | TC_TASK_REPO_REG_01 (path fallback without LocalAppPaths) |
-| D_STAGE9_02 (DEF-006) | turbo-sqlite Windows project PlatformToolset `v143` vs app `v145` (MSB8020) | Major | Install turbo-sqlite; build Windows | Upstream vcxproj toolset mismatch | `scripts/patch-turbo-sqlite-windows.js` + `postinstall` | Fixed | Manual / postinstall only (native MSBuild, not Jest) |
-| D_STAGE9_03 (DEF-007) | `LocalAppPaths.h` `u8string` → `std::string` compile error | Minor | Build after LocalAppPaths added | C++20 `u8string` type mismatch | `winrt::to_string(dir.wstring())` | Fixed | Manual native compile (not Jest) |
-
-### 8. Files tested / involved
-- `src/repositories/SqliteTaskRepository.ts`
-- `src/repositories/ITaskRepository.ts`
-- `src/services/DatabaseService.ts`
-- `src/types/task.ts`
-- `src/testing/FakeDatabaseService.ts`
-- `__tests__/TaskRepository.test.ts`
-
-### 9. Testing tools
-- Jest + TypeScript
-- React Native for Windows Jest config (`jest.config.windows.js`)
-- Option C: `FakeDatabaseService` injected into `SqliteTaskRepository` (records SQL/params + in-memory tables)
-
-### 10. Exact command
-```
-npm run test:windows -- --verbose > test-results.txt 2>&1
-```
-
-### 11. Test cases added
-
-| ID | Name |
-|---|---|
-| TC_TASK_REPO_01 | Initializes the database and creates the task table safely |
-| TC_TASK_REPO_02 | Creates a task using parameterized values |
-| TC_TASK_REPO_03 | Retrieves all tasks and maps database rows into typed Task objects |
-| TC_TASK_REPO_04 | Retrieves the correct task by task ID |
-| TC_TASK_REPO_05 | Updates an existing task while preserving its task ID |
-| TC_TASK_REPO_06 | Persists task labels correctly, including up to 10 labels |
-| TC_TASK_REPO_07 | Soft-deletes via moveTaskToTrash without removing unrelated tasks |
-| TC_TASK_REPO_08 | Returns an empty collection when no task rows exist |
-| TC_TASK_REPO_09 | Propagates/wraps database errors |
-| TC_TASK_REPO_10 | Passes values as SQL parameters (hostile title not concatenated) |
-| TC_TASK_REPO_REG_01 | Database path fallback without LocalAppPaths (DEF-005) |
-| TC_TASK_REPO_REG_02 | Re-init does not wipe existing rows |
-| TC_TASK_REPO_REG_03 | Missing-task update fails without altering other rows |
-
-### 12. Expected outcomes
-- Schema uses `CREATE TABLE IF NOT EXISTS`; re-init keeps data
-- Creates/updates bind `?` parameters including SQL-like titles
-- Rows map to typed Task fields; labels remain ordered comma-separated strings
-- Soft-delete moves only selected task to trash with `deletedAt`
-- Empty DB returns `[]`
-- Execute failures surface useful errors; missing update throws
-
-### 13. Actual outcomes
-- All new TC_TASK_REPO / REG cases passed
-- Prior suites remained passed
-
-### 14. Pass/fail status
-All TC_TASK_REPO_01–10 and TC_TASK_REPO_REG_01–03: **Pass**
-
-### 15. Defects discovered during Stage 10
-| Defect ID | Description | Severity | Steps | Status | Fix |
-|---|---|---|---|---|---|
-| D_STAGE10_01 | `react-native.config.js` set `project.ios` / `project.android` to `null`, causing CLI config validation error (`"project.ios" must be of type object`) and blocking `run-windows`. | Major | 1. Set ios/android to `null` 2. Run `npx react-native run-windows` | Fixed | Use empty objects `{}` instead of `null`. |
-| D_STAGE10_02 | Jest treated `__tests__/helpers/FakeDatabaseService.ts` as a test suite and failed suite discovery. | Minor | Place helper under `__tests__/` without `.test` suffix; RN Jest still collects it | Fixed | Moved helper to `src/testing/FakeDatabaseService.ts`. |
-
-No new unresolved product/repository defects remain.
-
-### 16. Final totals
-| Metric | Value |
-|---|---|
-| Test suites | 7 passed, 7 total |
-| Total tests | 55 |
-| Passed | 55 |
-| Failed | 0 |
-| Snapshots | 0 |
-
-### 17. Risks and contingencies
-- Jest uses a fake DatabaseService, not the native turbo-sqlite engine
-- Native Windows persistence still relies on Stage 9 manual/file checks and occasional UI spot-checks
-- Future schema migrations need dedicated tests
-- Corrupt DB recovery untested
-- Large dataset performance untested
-- DEF-006 / DEF-007 remain manual native regressions only
-
-### 18. Pass/fail criteria
-- Pass: repository returns correct typed data, uses parameterized SQL, and surfaces errors
-- Fail: lost/wrong data, unsafe SQL concatenation, or silent error swallow
-
-### 19. Overall stage status
-- Stage 10 complete and stable; ready for Stage 11 Timer UI
-
-### 20. Features not yet tested
-- Timer UI / TimerService / SessionManager
-- Goals / Statistics / Settings persistence
-- Native notifications / system tray
-- Final integration
-
-### Label note (actual code)
-`Task.labels` is a **string** (comma-separated). Validation produces `string[]` then TaskManager joins for storage. Repository tests verify string round-trip and order, not array-on-model behavior.
-
----
-
-## Stage 11–13 — Focus Session and Timer
-
-### 1. Feature implemented
-- Focus Session UI: large countdown, mode labels/chips, selected task, session counters, progress bar, Start/Pause/Resume/Skip/Reset with state-based disable rules, task selector
-- `TimerService`: timestamp-based remaining time (`endAtMs`), idle/running/paused
-- `SessionManager`: Pomodoro flow (25/5/15), long break after 4 completed work sessions, completed/skipped/interrupted tracking, selected task association
-- Session state is **not** persisted to SQLite yet (no SessionRepository). Timers are ephemeral for this stage; persisting mid-session would need schema + restore semantics that are deferred until Settings/session history is designed.
-
-### 2. Files created
-- `src/services/TimerService.ts`
-- `src/managers/SessionManager.ts`
-- `__tests__/TimerService.test.ts`
-- `__tests__/SessionManager.test.ts`
-
-### 3. Files modified
-- `src/screens/FocusScreen.tsx` — full Focus Session UI wired to `sessionManager`
-- `__tests__/App.test.tsx` — await Focus screen readiness after navigation
-- `documentation/plan.md`
-- `documentation/testing-notes.md`
-- `test-results.txt` (regenerated)
-
-### 4. Testing tools
-- Jest + React Native Testing Library
-- `jest.useFakeTimers()` / `jest.setSystemTime()` for deterministic countdown math
-
-### 5. Test command
-```
-npm run test:windows -- --verbose > test-results.txt 2>&1
-```
-
-### 6. New test IDs
-
-| ID | Name |
-|---|---|
-| TC_TIMER_01 | Timer starts correctly |
-| TC_TIMER_02 | Pause freezes remaining time |
-| TC_TIMER_03 | Resume continues countdown |
-| TC_TIMER_04 | Reset restores initial duration |
-| TC_TIMER_05 | Skip advances by clearing the current segment |
-| TC_TIMER_06 | Work session transitions to short break |
-| TC_TIMER_07 | Fourth completed work session transitions to long break |
-| TC_TIMER_08 | Timer remains accurate using timestamps |
-| TC_SESSION_01 | SessionManager tracks completed work sessions |
-| TC_SESSION_02 | Selected task remains associated with session |
-| TC_SESSION_03 | Interrupted sessions are recorded correctly |
-| TC_SESSION_04 | Default Pomodoro durations are loaded correctly |
-
-### 7. Expected outcomes
-- Timer start/pause/resume/reset/skip behave correctly under fake timers
-- Work → short break; four completed work sessions → long break
-- SessionManager tracks completions, interrupts, selected task, default durations
-- Prior suites remain green; Focus UI subtitle still matches TC_NAV_02
-
-### 8. Actual outcomes
-- All new TC_TIMER / TC_SESSION cases passed
-- Prior suites remained passed
-- TypeScript `tsc --noEmit` clean
-
-### 9. Manual verification
-Command: `npx react-native run-windows`
-
-First deploy attempt failed with known DEF-004-style file lock on `ReactNativeTurboSqlite.dll` while FocusFlow was already running. Closed the process and re-ran; build/deploy/launch succeeded (exit 0).
-
-UI Automation spot-check on the live Focus Session screen:
-
-| Check | Result |
-|---|---|
-| App launch / Focus Session screen | Pass — Focus Session visible with mode Work Session and countdown `25:00` |
-| Start | Pass — countdown advanced (`25:00` → `24:59`); Pause enabled, Start disabled |
-| Pause | Pass — remaining frozen (`24:58` unchanged across 1.5s); Resume enabled |
-| Resume | Pass — countdown continued (`24:56`); Pause enabled again |
-| Skip | Pass — work → Short Break `05:00` |
-| Skip break | Pass — short break → Work Session `25:00` |
-| Reset | Pass — restored idle Work Session `25:00` with Start enabled |
-| Auto short-break after completed work | Covered by Jest TC_TIMER_06 (25m real wait not exercised in UI) |
-| Long break after four work sessions | Covered by Jest TC_TIMER_07 (full 4×25m UI cycle not exercised) |
-| Timer display updates | Pass — countdown updated while running |
-
-### 10. Defects found
-None in Focus Session / Timer product behavior during Stages 11–13.
-
-Deploy note (pre-existing): DLL file lock while app running matches DEF-004 workaround (close FocusFlow, redeploy).
-
-### 11. Fixes applied
-- App nav tests await `focus-countdown` so FocusScreen async task load settles under `act`.
-- Closed running FocusFlow process to complete `run-windows` deploy after file-lock failure.
-
-### 12. Final Jest totals
-| Metric | Value |
-|---|---|
-| Test suites | 9 passed, 9 total |
-| Total tests | 67 |
-| Passed | 67 |
-| Failed | 0 |
-| Snapshots | 0 |
-
-### 13. Overall stage status
-- Stages 11–13 complete; ready for Stage 14 Goals
-
-### 14. Features not yet tested
-- Goals / GoalManager
+### Implementation milestones (Stages 1–13)
+
+| Sprint | Stages | Delivered | Key test IDs |
+|---|---|---|---|
+| Shell & UI foundation | 1–4 | App shell, sidebar nav, shared components | TC_NAV_*, TC_UI_* |
+| Task presentation & validation | 5–6 | TasksScreen UI, `taskValidation` | TC_TASK_UI_*, TC_TASK_FORM_*, TC_TASK_VAL_* |
+| Task business logic | 7–8 | `TaskManager`, unit + trash tests | TC_TASK_MGR_*, TC_TASK_TRASH_* |
+| Task persistence | 9–10 | SQLite, `SqliteTaskRepository`, repo tests | TC_TASK_REPO_*, TC_TASK_REPO_REG_* |
+| Focus Session & timer | 11–13 | FocusScreen, `TimerService`, `SessionManager`, long-break cycle fix | TC_TIMER_*, TC_SESSION_* |
+
+### Key implementation notes (integrated)
+
+**Tasks (Stages 5–10)**
+- `Task.labels` is a **comma-separated string** on the model; validation sanitizes to `string[]` then TaskManager joins for storage.
+- Delete is soft-delete (`moveToTrash`) with Recently Deleted restore, permanent delete, and 30-day purge.
+- Status flow: Pending → In Progress → Completed.
+- SQLite: `react-native-turbo-sqlite` 0.6.2; DB at `{LocalFolder}/focusflow.db`; parameterized `?` SQL only.
+- Jest uses `InMemoryTaskRepository` / `FakeDatabaseService` — not the native turbo-sqlite binary.
+
+**Focus Session (Stages 11–13)**
+- Pomodoro cycle: Work1 → Short → Work2 → Short → Work3 → Short → Work4 → Long → Work (next cycle).
+- Durations: work 25m, short break 5m, long break 15m.
+- `TimerService` uses wall-clock timestamps (`endAtMs`); `SessionManager` owns Pomodoro flow and counters.
+- **Skipped work is not completed** — Skip does not increment `completedWorkSessions` or cycle progress; only natural finish (timer → zero) counts.
+- Cycle counter stays at `4/4` during long break; resets to `0` after long break completes.
+- Session state is **not** persisted (no `SessionRepository` yet).
+- `FocusScreen` is presentational only; business logic stays in managers/services.
+
+### Manual verification summary
+
+| Area | Method | Result |
+|---|---|---|
+| SQLite persistence (Stage 9) | Process restart + direct DB insert/update/delete | Create/edit/delete survived restart — Pass |
+| Focus Session UI (Stages 11–13) | `npx react-native run-windows` + UI Automation | Start/Pause/Resume/Skip/Reset — Pass; countdown updates — Pass |
+| Long break full UI cycle | Not run at real 25m×4 duration | Covered by Jest TC_TIMER_07, TC_SESSION_07 |
+
+Deploy note: close running FocusFlow before redeploy if DLL file lock occurs (DEF-004).
+
+### Features not yet tested
+
+- Goals / GoalManager (Stage 14+)
 - Statistics / StatisticsEngine
 - Settings persistence
-- Notifications / system tray
 - Session persistence / SessionRepository
+- Notifications / system tray
+- Schema migrations / corrupt DB recovery / large datasets
 - Final integration
-
----
-
-## Focus Session counter and long-break fix (post Stages 11–13)
-
-### Problem
-- Focus Screen counters (`completedWorkSessions`, `completedBreaks`, `workSessionsTowardLongBreak`) only change when a segment finishes normally (timer reaches zero after Start). Using **Skip** never increments completed-work counters, which looked like “counters are broken” during manual Skip-driven testing.
-- Cycle counter (`workSessionsTowardLongBreak`) was reset to `0` as soon as the 4th work session queued a long break, so the UI showed `0/4` while already on Long Break.
-
-### Decision — skipped work sessions
-**Skipped work is not completed.** Skip does not increment `completedWorkSessions` or `workSessionsTowardLongBreak`. Skip only advances mode (work → short break; break → work). Documented in UI hint text and `SessionManager` header comments. Preserves Stages 11–13 intended behavior.
-
-### Fixes applied
-1. Increment `completedWorkSessions` / cycle progress only on normal work finish; pause/reset/skip do not increment.
-2. After 4th completed work → Long Break with configured 15m duration; cycle display stays at `4/4` during the long break.
-3. When long break reaches zero → increment `completedBreaks` once, switch to Work, reset cycle to `0`, load work duration.
-4. `isCompletingSegment` + clear `hadProgressInSegment` before mode advance to prevent duplicate transitions on multiple zero-ticks.
-5. Long break pause / resume / reset / skip still work; skipping long break also starts a new cycle (`workSessionsTowardLongBreak = 0`).
-6. FocusScreen remains presentational (renders snapshot; calls manager methods only). Label renamed to “Work sessions this cycle” plus skip hint.
-
-### Tests added
-| ID | Name |
-|---|---|
-| TC_SESSION_05 | Skipped work does not increment completed work count |
-| TC_SESSION_06 | Pause and reset do not increment completed work count |
-| TC_SESSION_07 | Long break completion resets cycle and returns to work |
-| TC_SESSION_08 | Duplicate ticks at zero complete a segment only once |
-| TC_SESSION_09 | Long break supports pause, resume, reset, and skip |
-
-### Final Jest totals (after fix)
-| Metric | Value |
-|---|---|
-| Test suites | 9 passed, 9 total |
-| Total tests | 72 |
-| Passed | 72 |
-| Failed | 0 |
-| Snapshots | 0 |
-
-### Files touched
-- `src/managers/SessionManager.ts`
-- `src/screens/FocusScreen.tsx`
-- `__tests__/SessionManager.test.ts`
-- `documentation/testing-notes.md`
-- `test-results.txt`
 
