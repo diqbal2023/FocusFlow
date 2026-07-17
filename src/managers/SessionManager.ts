@@ -8,6 +8,24 @@ export const POMODORO_DURATIONS_MS = {
 
 export const WORK_SESSIONS_BEFORE_LONG_BREAK = 4;
 
+export type SessionConfiguration = {
+  workMinutes: number;
+  shortBreakMinutes: number;
+  longBreakMinutes: number;
+  longBreakInterval: number;
+  autoStartBreaks: boolean;
+  autoStartWorkSessions: boolean;
+};
+
+export const DEFAULT_SESSION_CONFIGURATION: SessionConfiguration = {
+  workMinutes: 25,
+  shortBreakMinutes: 5,
+  longBreakMinutes: 15,
+  longBreakInterval: WORK_SESSIONS_BEFORE_LONG_BREAK,
+  autoStartBreaks: false,
+  autoStartWorkSessions: false,
+};
+
 export type SessionModeLabel = 'Work Session' | 'Short Break' | 'Long Break';
 
 export type CompletedSessionEvent = {
@@ -47,10 +65,6 @@ function modeLabel(mode: TimerMode): SessionModeLabel {
   return 'Long Break';
 }
 
-function durationFor(mode: TimerMode): number {
-  return POMODORO_DURATIONS_MS[mode];
-}
-
 /**
  * Pomodoro session orchestration on top of TimerService.
  * Does not persist sessions or write statistics.
@@ -80,10 +94,29 @@ export class SessionManager {
   private completionHistory: CompletedSessionEvent[] = [];
   /** Prevents duplicate completion handling when multiple ticks land at zero. */
   private isCompletingSegment = false;
+  private configuration: SessionConfiguration = {
+    ...DEFAULT_SESSION_CONFIGURATION,
+  };
 
   constructor(timer: TimerService = new TimerService()) {
     this.timer = timer;
     this.timer.configure('work', POMODORO_DURATIONS_MS.work);
+  }
+
+  getConfiguration(): SessionConfiguration {
+    return {...this.configuration};
+  }
+
+  configure(configuration: SessionConfiguration, now: number = Date.now()): void {
+    this.configuration = {...configuration};
+    if (this.timer.getRunState() === 'idle') {
+      this.timer.configure(
+        this.timer.getCurrentMode(),
+        this.durationFor(this.timer.getCurrentMode()),
+        now,
+      );
+      this.hadProgressInSegment = false;
+    }
   }
 
   selectTask(taskId: string | null, taskTitle: string | null = null): void {
@@ -95,7 +128,7 @@ export class SessionManager {
     if (this.timer.getRemainingTime(now) <= 0) {
       this.timer.configure(
         this.timer.getCurrentMode(),
-        durationFor(this.timer.getCurrentMode()),
+        this.durationFor(this.timer.getCurrentMode()),
         now,
       );
     }
@@ -123,7 +156,7 @@ export class SessionManager {
     }
     this.timer.configure(
       this.timer.getCurrentMode(),
-      durationFor(this.timer.getCurrentMode()),
+      this.durationFor(this.timer.getCurrentMode()),
       now,
     );
     this.hadProgressInSegment = false;
@@ -231,6 +264,16 @@ export class SessionManager {
     return {...POMODORO_DURATIONS_MS};
   }
 
+  private durationFor(mode: TimerMode): number {
+    const minutes =
+      mode === 'work'
+        ? this.configuration.workMinutes
+        : mode === 'shortBreak'
+          ? this.configuration.shortBreakMinutes
+          : this.configuration.longBreakMinutes;
+    return minutes * 60_000;
+  }
+
   private shouldCountInterrupt(now: number): boolean {
     const remaining = this.timer.getRemainingTime(now);
     const duration = this.timer.getDurationMs();
@@ -264,17 +307,23 @@ export class SessionManager {
         completedAt: new Date(completedAtMs).toISOString(),
         durationMs,
       });
-      this.advanceModeAfterCompletion(mode);
+      this.advanceModeAfterCompletion(mode, completedAtMs);
     } finally {
       this.isCompletingSegment = false;
     }
   }
 
-  private advanceModeAfterCompletion(completedMode: TimerMode): void {
+  private advanceModeAfterCompletion(
+    completedMode: TimerMode,
+    now: number,
+  ): void {
     let next: TimerMode = 'work';
 
     if (completedMode === 'work') {
-      if (this.workSessionsTowardLongBreak >= WORK_SESSIONS_BEFORE_LONG_BREAK) {
+      if (
+        this.workSessionsTowardLongBreak >=
+        this.configuration.longBreakInterval
+      ) {
         next = 'longBreak';
         // Keep workSessionsTowardLongBreak at 4 until the long break ends
         // so the UI can show 4/4 during the long break.
@@ -289,7 +338,14 @@ export class SessionManager {
       next = 'work';
     }
 
-    this.timer.configure(next, durationFor(next));
+    this.timer.configure(next, this.durationFor(next), now);
+    const shouldAutoStart =
+      (next === 'work' && this.configuration.autoStartWorkSessions) ||
+      (next !== 'work' && this.configuration.autoStartBreaks);
+    if (shouldAutoStart) {
+      this.timer.start(now);
+      this.hadProgressInSegment = true;
+    }
   }
 
   private advanceModeAfterSkip(skippedMode: TimerMode): void {
@@ -307,7 +363,7 @@ export class SessionManager {
       next = 'work';
     }
 
-    this.timer.configure(next, durationFor(next));
+    this.timer.configure(next, this.durationFor(next));
   }
 }
 

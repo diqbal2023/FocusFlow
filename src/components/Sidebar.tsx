@@ -1,5 +1,5 @@
 import {Pressable, StyleSheet, Text, View} from 'react-native';
-import {colors} from '../constants/colors';
+import {useTheme} from '../context/ThemeContext';
 import {spacing} from '../constants/spacing';
 import {typography} from '../constants/typography';
 
@@ -29,11 +29,23 @@ type SidebarProps = {
 };
 
 export function Sidebar({activeScreen, onSelect}: SidebarProps) {
+  const {colors} = useTheme();
   return (
-    <View style={styles.sidebar}>
+    <View
+      style={[
+        styles.sidebar,
+        {
+          backgroundColor: colors.sidebarBackground,
+          borderRightColor: colors.sidebarBorder,
+        },
+      ]}>
       <View style={styles.header}>
-        <Text style={styles.appName}>FocusFlow</Text>
-        <Text style={styles.appTagline}>Stay focused. Get things done.</Text>
+        <Text style={[styles.appName, {color: colors.sidebarTextActive}]}>
+          FocusFlow
+        </Text>
+        <Text style={[styles.appTagline, {color: colors.sidebarTextMuted}]}>
+          Stay focused. Get things done.
+        </Text>
       </View>
 
       <View style={styles.nav}>
@@ -49,11 +61,19 @@ export function Sidebar({activeScreen, onSelect}: SidebarProps) {
               onPress={() => onSelect(item.id)}
               style={({pressed}) => [
                 styles.navItem,
-                isActive && styles.navItemActive,
-                pressed && !isActive && styles.navItemPressed,
+                isActive && {backgroundColor: colors.sidebarItemActive},
+                pressed &&
+                  !isActive && {backgroundColor: colors.sidebarItemPressed},
               ]}>
               <Text
-                style={[styles.navLabel, isActive && styles.navLabelActive]}>
+                style={[
+                  styles.navLabel,
+                  {color: colors.sidebarText},
+                  isActive && {
+                    ...styles.navLabelActive,
+                    color: colors.sidebarTextActive,
+                  },
+                ]}>
                 {item.label}
               </Text>
             </Pressable>
@@ -68,9 +88,7 @@ const styles = StyleSheet.create({
   sidebar: {
     width: 240,
     minWidth: 240,
-    backgroundColor: colors.sidebarBackground,
     borderRightWidth: 1,
-    borderRightColor: colors.sidebarBorder,
     paddingTop: spacing.xl,
     paddingHorizontal: spacing.md,
   },
@@ -80,12 +98,10 @@ const styles = StyleSheet.create({
   },
   appName: {
     ...typography.appTitle,
-    color: colors.sidebarTextActive,
     marginBottom: spacing.xs,
   },
   appTagline: {
     ...typography.caption,
-    color: colors.sidebarTextMuted,
   },
   nav: {
     gap: spacing.xs,
@@ -95,18 +111,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
   },
-  navItemActive: {
-    backgroundColor: colors.sidebarItemActive,
-  },
-  navItemPressed: {
-    backgroundColor: colors.sidebarItemPressed,
-  },
   navLabel: {
     ...typography.bodyMedium,
-    color: colors.sidebarText,
   },
   navLabelActive: {
-    color: colors.sidebarTextActive,
     fontWeight: '600',
   },
 });

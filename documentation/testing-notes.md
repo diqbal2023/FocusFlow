@@ -5,12 +5,12 @@ Working notes for the IEEE Software Test Document.
 
 | Field | Value |
 |---|---|
-| Last updated | 2026-07-17 (Stages 1–17 integrated; Statistics + StatisticsEngine) |
-| Current stage covered | Stages 1–17 (Statistics dashboard, runtime completion history, StatisticsEngine) |
-| Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx`, `__tests__/TaskValidation.test.ts`, `__tests__/TaskManager.test.ts`, `__tests__/TaskManager.trash.test.ts`, `__tests__/TaskRepository.test.ts`, `__tests__/TimerService.test.ts`, `__tests__/SessionManager.test.ts`, `__tests__/GoalManager.test.ts`, `__tests__/StatisticsEngine.test.ts` |
+| Last updated | 2026-07-17 (Stages 1–19 integrated; Settings) |
+| Current stage covered | Stages 1–19 (Settings implementation and tests) |
+| Source test files | Existing Stage 1–17 suites plus `__tests__/Settings.test.ts` and `__tests__/SettingsScreen.test.tsx` |
 | Primary command | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
 | Alternate command | `npm test` |
-| Latest result | 11 suites / 97 tests passed / 0 failed / 0 snapshots |
+| Latest result | 13 suites / 111 tests passed / 0 failed / 0 snapshots |
 | Results log | `test-results.txt` (project root) |
 
 ## How to update this file
@@ -40,7 +40,9 @@ Working notes for the IEEE Software Test Document.
 | 15 | GoalManager direct unit tests (TC_GOAL_01–10) | Complete / passing |
 | 16 | Statistics dashboard + runtime completion histories | Complete / passing |
 | 17 | StatisticsEngine direct unit tests (TC_STATS_01–12) | Complete / passing |
-| 18+ | Settings, Windows features, final integration | Not started |
+| 18 | Settings model, SQLite repository, manager, theme, timer/goals integration, full form | Complete / passing |
+| 19 | Settings manager/repository/UI automation (TC_SETTINGS_*) | Complete / passing |
+| 20+ | Windows features and final integration | Not started |
 
 ---
 
@@ -48,8 +50,8 @@ Working notes for the IEEE Software Test Document.
 
 - **Test Scope**
   - Automated Jest UI and unit tests for FocusFlow React Native for Windows (TypeScript)
-  - Covers: navigation shell, shared UI components, TasksScreen interactions, task validation, TaskManager business logic (including Recently Deleted and runtime completion events), SqliteTaskRepository persistence behavior (via injected fake `DatabaseService`), Focus Session / TimerService / SessionManager completion events, GoalManager calculations, and StatisticsEngine daily/weekly/history/score/streak calculations
-  - Does not cover as automated Jest: native turbo-sqlite engine I/O, Windows packaging/deploy, visual layout, Settings, notifications, export, authentication, cloud services
+  - Covers prior scope plus settings defaults, strict validation, persistence abstraction, manager publication/application, reset safety, configurable timer transitions, zero goals, and SettingsScreen save behavior
+  - Does not cover as automated Jest: native turbo-sqlite engine I/O, visual layout, native notifications, export, authentication, cloud services
 
 - **Test Objectives**
   - Verify default screen and sidebar navigation between 5 sections
@@ -64,6 +66,7 @@ Working notes for the IEEE Software Test Document.
   - Confirm dated runtime task/session completion records are cloned, exact, and not emitted by skip/reset
   - Confirm StatisticsEngine filtering, totals, 40/40/20 score, category boundaries/messages, Monday weeks, 90-day history, no-data behavior, and Fair-or-better streaks
   - Confirm prior application suites remain green after Stages 16–17 work
+  - Confirm settings persist before publication, merge partial stored JSON, reject corruption, apply to timer/goals/theme, and reset preferences without resetting productivity data
 
 - **Test Items**
   - `App.tsx` + `Sidebar`
@@ -84,6 +87,8 @@ Working notes for the IEEE Software Test Document.
   - `src/repositories/SqliteTaskRepository.ts`, `ITaskRepository.ts`, `InMemoryTaskRepository.ts`
   - `src/services/DatabaseService.ts`
   - `src/testing/FakeDatabaseService.ts` (Stage 10 test double)
+  - `src/models/AppSettings.ts`, `src/repositories/SettingsRepository.ts`, `src/managers/SettingsManager.ts`
+  - `src/context/ThemeContext.tsx`, `src/screens/SettingsScreen.tsx`
 
 - **Features Tested**
   - Sidebar navigation / active item state
@@ -104,6 +109,10 @@ Working notes for the IEEE Software Test Document.
   - Score formula: 40% task-goal fulfillment + 40% focus-minute fulfillment + 20% focus-session fulfillment; each component capped at 100%, total rounded/clamped to 0–100
   - Categories: Excellent 85–100, Good 70–84, Fair 50–69, Needs Improvement 0–49; messages centralized in StatisticsEngine
   - Monday–Sunday week summaries, zero-filled history, and Fair-or-better (`score >= 50`) streaks
+  - Settings defaults and bounds; explicit Save; singleton JSON SQLite row; partial-field merge; corrupt-JSON error; reset; subscriptions
+  - Configurable timer durations/long-break interval/auto-start while preserving running or paused segments
+  - Goal targets including zero (immediately fulfilled), with actual completed work-event minutes
+  - Persisted System/Light/Dark preference applied to app shell and shared components
 
 - **Features Not Yet Tested**
   - Native turbo-sqlite engine behavior inside Jest (suite uses fake/in-memory doubles)
@@ -111,13 +120,14 @@ Working notes for the IEEE Software Test Document.
   - Schema migrations / corrupt-database recovery / large-dataset performance
   - Parent/subtask completion business rules (not implemented)
   - Session persistence / SessionRepository
-  - Goal target/reset persistence (deferred to Settings)
   - Completion history across app restarts (runtime events are intentionally in memory)
-  - Statistics / Settings persistence
+  - Durable statistics/session history
   - Notifications, system tray, export, authentication, cloud services
   - Visual style details (colors, spacing, fonts) as automated assertions
   - Windows packaging/deploy as an automated test
   - Final integration behavior
+  - Full manual settings save/restart persistence click path (repository restart semantics are automated)
+  - Complete dark-theme migration of screen-local static StyleSheets
 
 - **Test Environment**
   - OS: Windows 10/11 development machine
@@ -142,17 +152,19 @@ Working notes for the IEEE Software Test Document.
   - Native deploy can fail if FocusFlow locks DLLs (see DEF-004)
   - PlatformToolset patch for turbo-sqlite (`postinstall`) must remain after reinstalls (DEF-006)
   - Focus Session state is not persisted across app restart
-  - Goal targets and reset baselines are in memory and return to defaults after app restart
+  - Goal targets persist; reset baselines remain runtime-only
   - New task/session completions have in-memory timestamps, but existing persisted Completed tasks have no historical date and are reported only as an undated snapshot
   - Statistics history resets on app restart; it must not be presented as durable historical reporting
   - Calendar normalization uses local calendar dates consistently; DST-safe date stepping uses calendar operations rather than fixed 24-hour offsets
   - Full 25-minute UI wait for natural work completion is not part of routine manual checks; Jest covers natural completion / long-break paths with timestamps
+  - Settings JSON is version-tolerant for missing fields; syntactically corrupt JSON fails explicitly instead of being silently overwritten
+  - Theme coverage is coherent for the app shell/shared controls, but older screen-local static colors remain for later visual cleanup
   - If `npm test` preset breaks, use `npm run test:windows`
 
 - **Pass/Fail Criteria**
   - **Pass:** actual behavior matches expected behavior and the Jest assertion succeeds; suite exits 0
   - **Fail:** behavior differs from expected result, an assertion fails, or the test suite cannot execute
-  - **Stage gate (current):** Stages 1–17 green (`Failed Tests: 0`); Stage 18 (Settings) is next
+  - **Stage gate (current):** Stages 1–19 green (`Failed Tests: 0`); Stage 20 is next
 
 ---
 
@@ -259,6 +271,20 @@ Primary case catalog for **Stages 1–17** is below (single integrated table). A
 | TC_STATS_10 | Exclude future/poor days | Below-Fair today plus future productive event | Current streak 0 | Calculate today | Streak 0 | Pass |
 | TC_STATS_11 | Separate focus and break durations | Short + long break events only | 0 focus; 20 break minutes; score 0 | Summarize day | Durations separated | Pass |
 | TC_STATS_12 | Refresh injected production sources | Runtime events + one undated persisted completed task | Runtime event counted on day; snapshot separate | Refresh injected engine | No fabricated snapshot date | Pass |
+| TC_SETTINGS_01 | Verify complete defaults | New SettingsManager | 25/5/15, interval 4, existing goal defaults, System theme, general defaults | Read current settings | Defaults matched | Pass |
+| TC_SETTINGS_02 | Reject malformed numeric fields | NaN, infinity, decimal, negative, out-of-range | Useful errors by field | Validate settings | All invalid fields rejected | Pass |
+| TC_SETTINGS_03 | Persist before apply/publish | Valid timer/goal/theme edit | Repository save, then manager application and listener | Save settings | Ordered behavior matched | Pass |
+| TC_SETTINGS_04 | Keep state unchanged on write failure | Repository throws | No apply or publish | Save settings | Existing state retained | Pass |
+| TC_SETTINGS_05 | Block invalid save | Work minutes 0 | ValidationError; no repository call | Save settings | Blocked | Pass |
+| TC_SETTINGS_06 | Reset preferences non-destructively | Existing goal progress | Defaults restored; progress retained | Reset settings | Progress unchanged | Pass |
+| TC_SETTINGS_07 | Preserve active timer segment | Update while running/paused | Current 25m segment retained; idle reset uses 45m | Configure at each state | Rules matched | Pass |
+| TC_SETTINGS_08 | Apply next duration/auto-start | 1m work, 2m break, auto-break | Exact 1m completion; running 2m break | Complete work | Transition matched | Pass |
+| TC_SETTINGS_09 | Handle zero goal targets | All targets 0 | Complete, 100%, finite | Calculate goals | Safe and complete | Pass |
+| TC_SETTINGS_REPO_01 | Merge/upsert/reset singleton | Partial JSON then save/delete | Missing defaults merged; one payload updated/deleted | Repository operations with fake DB | Correct | Pass |
+| TC_SETTINGS_REPO_02 | Reject corrupt JSON explicitly | `{bad` | Corruption error | Repository load | Error surfaced | Pass |
+| TC_SETTINGS_UI_01 | Show field validation | Work minutes 0; Save | Error shown; save not called | RNTL interaction | Correct | Pass |
+| TC_SETTINGS_UI_02 | Save only explicitly | Edit 45/theme Dark, then Save | No per-keystroke write; one save and success | RNTL interaction | Correct | Pass |
+| TC_SETTINGS_UI_03 | Expose all sections/accessibility | Render SettingsScreen | Timer/Goals/Appearance/General and labeled controls | RNTL queries | Present | Pass |
 
 ---
 
@@ -365,11 +391,22 @@ npm run test:windows -- --verbose > test-results.txt 2>&1
   4. Run `npx react-native run-windows`; inspect dashboard/date/period/history states where interactive access is available
 - **Post-Execution Actions:** Record only actual checks. Existing persisted Completed count is snapshot metadata, never dated history.
 
+### TP-SETTINGS — Settings (Stages 18–19)
+- **Procedure ID:** TP-SETTINGS
+- **Description:** Verify settings validation, persistence, manager integration, timer/goal rules, theme preference, and form interactions
+- **Test Environment:** Jest direct/RNTL tests with injected repositories and FakeDatabaseService; Windows build plus accessibility-tree inspection
+- **Steps to Execute:**
+  1. Run the preferred full command and confirm TC_SETTINGS_01–09, TC_SETTINGS_REPO_01–02, and TC_SETTINGS_UI_01–03.
+  2. Run `npx tsc --noEmit` and changed-file ESLint.
+  3. Run `npx react-native run-windows`; navigate to Settings and inspect the native accessibility tree.
+  4. For a full manual release check, save values, close the process, reopen without redeploying, and confirm values reload.
+- **Post-Execution Actions:** Record only observed persistence. Reset changes preferences only; it must not reset tasks, progress, histories, sessions, or statistics.
+
 ---
 
 ## 4. TEST RESULTS INFORMATION
 
-Latest full automated run (`test-results.txt`): **11 suites / 97 tests passed / 0 failed / 0 snapshots**.
+Latest full automated run (`test-results.txt`): **13 suites / 111 tests passed / 0 failed / 0 snapshots**.
 
 | Test Case ID | Description | Result | Test Log (brief) | Defect ID |
 |---|---|---|---|---|
@@ -388,15 +425,18 @@ Latest full automated run (`test-results.txt`): **11 suites / 97 tests passed / 
 | TC_TASK_MGR_11 | Task completion event history | Pass | One event per In Progress → Completed transition | N/A |
 | TC_SESSION_10–11 | Session completion event history | Pass | Natural completions only; exact configured duration | N/A |
 | TC_STATS_01–12 | StatisticsEngine | Pass | Daily/weekly/history/score/category/streak and injected refresh | N/A |
+| TC_SETTINGS_01–09 | Settings model/manager/integration | Pass | Defaults, validation, ordering, reset, timer, goals | N/A |
+| TC_SETTINGS_REPO_01–02 | SettingsRepository | Pass | Partial merge, singleton upsert/reset, corrupt JSON | N/A |
+| TC_SETTINGS_UI_01–03 | SettingsScreen | Pass | Invalid/valid save and accessible sections | N/A |
 
 ---
 
 ## 5. DEFECT TRACKING INFORMATION
 
-Latest automated product test run: **0 failed** (**11 suites / 97 tests passed**).
-Stages 1–17 complete. Product defects from Stages 9–10 are fixed (DEF-005–008). DEF-004 remains an open deploy workaround when the app locks DLLs.
+Latest automated product test run: **0 failed** (**13 suites / 111 tests passed**).
+Stages 1–19 complete. Product defects from Stages 9–10 are fixed (DEF-005–008). DEF-004 remains an open deploy workaround when the app locks DLLs.
 
-One pre-existing regression was discovered before Statistics work and fixed as D_STAGE16_01.
+One pre-existing regression was discovered before Statistics work and fixed as D_STAGE16_01. Settings implementation checks found and fixed D_STAGE18_01–02.
 
 Historical defects found during setup / earlier automated testing (and fixed) are logged below.
 
@@ -413,12 +453,16 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | D_STAGE10_01 | `react-native.config.js` null ios/android blocked `run-windows` (same as DEF-008). | Major | Set ios/android to `null`; run `run-windows` | Fixed | Use `{}` instead of `null`. |
 | D_STAGE10_02 | Jest collected `__tests__/helpers/FakeDatabaseService.ts` as a test suite. | Minor | Place helper under `__tests__/` without `.test` suffix | Fixed | Moved to `src/testing/FakeDatabaseService.ts`. |
 | D_STAGE16_01 | TC_GOAL_10 could fail after midnight because `GoalManager.setTargets()` called `getProgress()` with the machine's real current date, rolling the controlled test manager's baseline before `synchronizeProgress(now)`. | Major | 1. Construct GoalManager with a controlled prior date 2. Call `setTargets()` after the real calendar date changes 3. Synchronize with the controlled date 4. Observe progress baseline incorrectly reset | Fixed | GoalManager now preserves its last controlled reference date for target changes and accepts an optional `now`; all existing TC_GOAL IDs remain unchanged and green. |
+| D_STAGE18_01 | SettingsScreen’s optional injected manager prop made the component function incompatible with the app shell’s zero-argument screen component map during TypeScript verification. | Minor | 1. Add destructured SettingsScreen props 2. Run `npx tsc --noEmit` 3. Observe TS2322 in `App.tsx` | Fixed | Give the entire props argument a default value; TypeScript and all tests pass. |
+| D_STAGE18_02 | Shared button pressed and disabled styles could override active dark-theme tokens with module-level light colors. | Minor | 1. Select Dark theme 2. Press or disable a shared button 3. Inspect the resolved style colors | Fixed | Pressed, disabled, border, and label colors now derive from the active `ThemeContext` tokens. |
 
-### Stages 16–17 defect detail
+### Recent defect detail
 
 | ID | Severity | Description | Steps to reproduce | Expected | Actual | Root cause | Fix | Status | Fix stage | Regression |
 |---|---|---|---|---|---|---|---|---|---|---|
 | D_STAGE16_01 | Major | Controlled GoalManager progress could reset after the machine crossed into a new calendar day. | Construct with a controlled date; call `setTargets()` after the real date changes; synchronize using the controlled date. | Target editing preserves the manager's controlled period and progress. | The implicit real date rolled the baseline, producing zero progress in TC_GOAL_10. | `setTargets()` called `getProgress()` without carrying the manager's reference date. | Preserve the last controlled reference date and accept an optional `now` in `setTargets()`. | Fixed | Stage 16 | Existing TC_GOAL_10 now passes deterministically. |
+| D_STAGE18_01 | Minor | SettingsScreen component type did not fit the zero-argument navigation map. | Add destructured injected-manager props; run `npx tsc --noEmit`. | SettingsScreen remains injectable and assignable to `() => JSX.Element`. | TS2322 in `App.tsx`. | The props object itself was required even though its property was optional. | Default the entire props argument to `{}`. | Fixed | Stage 18 | TypeScript passes; all TC_NAV and TC_SETTINGS_UI cases pass. |
+| D_STAGE18_02 | Minor | Shared button interaction states used light tokens while Dark theme was active. | Select Dark theme; inspect a pressed or disabled `AppButton`. | Every button state uses the resolved active theme. | Static pressed/disabled styles followed dynamic styles and overrode them. | Module-level light color styles had higher array precedence for interaction states. | Compute interaction colors from `useTheme()` and apply them dynamically. | Fixed | Stage 18 | Shared component and full Jest suites pass; live Dark selection remains coherent. |
 
 ### Defect field notes (for STD authors)
 
@@ -435,13 +479,13 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 
 | Metric | Value |
 |---|---|
-| Total Test Suites | 11 |
-| Total Test Cases | 97 |
-| Passed | 97 |
+| Total Test Suites | 13 |
+| Total Test Cases | 111 |
+| Passed | 111 |
 | Failed | 0 |
 | Pass Percentage | 100% |
 | Snapshots | 0 |
-| Overall System Status (tested scope) | Stages 1–17 green; Statistics / StatisticsEngine covered; Stage 18 (Settings) next |
+| Overall System Status (tested scope) | Stages 1–19 green; Settings covered; Stage 20 next |
 
 ### Suite map
 
@@ -458,6 +502,8 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | SessionManager | `__tests__/SessionManager.test.ts` | TC_TIMER_06–07, TC_SESSION_01–09 |
 | GoalManager | `__tests__/GoalManager.test.ts` | TC_GOAL_01–10 |
 | StatisticsEngine | `__tests__/StatisticsEngine.test.ts` | TC_STATS_01–12 |
+| Settings stages 18–19 | `__tests__/Settings.test.ts` | TC_SETTINGS_01–09, TC_SETTINGS_REPO_01–02 |
+| SettingsScreen | `__tests__/SettingsScreen.test.tsx` | TC_SETTINGS_UI_01–03 |
 
 ### Implementation milestones (Stages 1–17)
 
@@ -470,6 +516,7 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Focus Session & timer | 11–13 | FocusScreen, `TimerService`, `SessionManager`, long-break cycle fix | TC_TIMER_*, TC_SESSION_* |
 | Goals | 14–15 | Goal model, GoalManager, redesigned GoalsScreen, direct tests | TC_GOAL_* |
 | Statistics | 16–17 | Runtime completion events, StatisticsEngine, dashboard, custom 90-day grid | TC_TASK_MGR_11, TC_SESSION_10–11, TC_STATS_* |
+| Settings | 18–19 | Typed settings, SQLite repository, manager, theme, full form, timer/goals integration | TC_SETTINGS_*, TC_SETTINGS_REPO_*, TC_SETTINGS_UI_* |
 
 ### Key implementation notes (integrated)
 
@@ -508,6 +555,16 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 - Streak requires an active day scoring at least 50. Future/no-data days never count. If today has no activity, calculation starts at yesterday; if today has activity below 50, streak is 0.
 - `StatisticsScreen` delegates calculations to StatisticsEngine, polls manager sources, provides daily/weekly and date controls, loading/error/empty states, metric cards, weekly summary, recent history, and a package-free 90-day grid.
 
+**Settings (Stages 18–19)**
+- `AppSettings` is strongly typed. Defaults preserve existing behavior: timer 25/5/15 minutes, long break every 4 work sessions, both auto-start options off; goals daily 5/4/120 and weekly 30/20/600; theme System; notifications/sound/delete confirmation/show-completed on.
+- Validation requires finite whole numbers: work 1–180, short break 1–60, long break 1–120, interval 1–10; task/session goals 0–10,000; minute goals 0–100,000. Toggle values must be booleans. Zero goal targets are immediately fulfilled (100%) and are division-safe.
+- SQLite table `settings` stores one stable-key, parameterized JSON payload. Missing JSON fields merge over current defaults; syntactically corrupt JSON produces an explicit error. Reset deletes only the settings row.
+- Data flow is SettingsScreen → SettingsManager → SettingsRepository → DatabaseService/SQLite. SettingsManager persists successfully before applying/publishing, exposes load/save/reset/getCurrent/subscribe, and applies timer and goal configuration.
+- Running or paused segments retain their configured duration. New values apply to an idle segment or the next configured segment. Completion events retain actual segment durations; configured auto-start and long-break interval drive transitions.
+- Goal focus minutes sum actual completed work-event durations. Settings and Goals screen target edits persist without resetting progress/baselines/history.
+- Theme System/Light/Dark is persisted and resolved through Appearance/useColorScheme. The app shell, sidebar, and shared cards/inputs/buttons/headers use theme tokens. Older screens still contain static module StyleSheets, so full screen-level dark-theme visual cleanup is explicitly deferred.
+- Notification is a preference only. No Stage 20 delivery, tray, startup, MSIX, export, backup, auth, or cloud behavior was added. Onboarding remains deferred.
+
 ### Manual verification summary
 
 | Area | Method | Result |
@@ -517,16 +574,17 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Long break full UI cycle | Not run at real 25m×4 duration | Covered by Jest TC_TIMER_07, TC_SESSION_07 |
 | Goals UI (Stages 14–15) | `npx react-native run-windows` | Build, deploy, and app start — Pass after closing the existing FocusFlow process that held `ReactNativeTurboSqlite.dll` (known DEF-004 pattern). Interactive visual/click verification was not available in this agent environment; daily/weekly calculations, completion messages, percentages, and reset semantics are covered by TC_GOAL_01–10. |
 | Statistics UI (Stages 16–17) | `npx react-native run-windows` + Windows UI Automation | Pass — build/deploy/start exited 0; Statistics navigation opened the live dashboard; Daily/Weekly controls, score/category/message, streak, 90-day grid, recent-history empty state, and undated persisted-task note were present. Weekly toggle displayed its summary and no-data state without crashing. Creating a completion through UI Automation was not reliable, so event reflection remains verified by TC_TASK_MGR_11, TC_SESSION_10–11, and TC_STATS_12 rather than claimed as a manual pass. |
+| Settings UI (Stages 18–19) | `npx react-native run-windows` + Windows UI Automation | Pass — build/deploy/start exited 0; the live accessibility tree exposed Timer, Goals, Appearance, General, all numeric inputs/toggles/theme options, Save, and Restore Defaults. UI Automation changed work duration 25→42 and theme System→Dark, then displayed “Settings saved.”; FocusFlow was terminated and relaunched through its installed package identity without redeploying, and Settings reloaded 42/Dark. The original 25/System values were saved afterward. |
 
 Deploy note: close running FocusFlow before redeploy if DLL file lock occurs (DEF-004).
 Stage 14–15 launch note: the first overlapping native compile reported C1041 on `vc145.pdb`; a single retry built successfully. Deployment then encountered the known DLL lock, `tasklist /m ReactNativeTurboSqlite.dll` identified `FocusFlow.exe`, and closing only that process allowed the final build/deploy/start command to exit 0.
 
 ### Features not yet tested
 
-- Settings persistence
 - Session persistence / SessionRepository
-- Durable cross-restart statistics history and goal target persistence
+- Durable cross-restart statistics history
 - Notifications / system tray
 - Schema migrations / corrupt DB recovery / large datasets
 - Final integration
+- Full screen-level dark-theme visual cleanup
 

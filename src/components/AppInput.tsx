@@ -5,7 +5,7 @@ import {
   View,
   type TextInputProps,
 } from 'react-native';
-import {colors} from '../constants/colors';
+import {useTheme} from '../context/ThemeContext';
 import {spacing} from '../constants/spacing';
 import {typography} from '../constants/typography';
 
@@ -32,11 +32,12 @@ export function AppInput({
   secureTextEntry,
   autoCapitalize,
 }: AppInputProps) {
+  const {colors} = useTheme();
   const hasError = Boolean(error);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, {color: colors.textPrimary}]}>{label}</Text>
       <TextInput
         testID={testID}
         accessibilityLabel={accessibilityLabel ?? label}
@@ -46,9 +47,18 @@ export function AppInput({
         placeholderTextColor={colors.textMuted}
         secureTextEntry={secureTextEntry}
         autoCapitalize={autoCapitalize}
-        style={[styles.input, hasError && styles.inputError]}
+        style={[
+          styles.input,
+          {
+            color: colors.textPrimary,
+            backgroundColor: colors.surface,
+            borderColor: hasError ? colors.error : colors.borderStrong,
+          },
+        ]}
       />
-      {hasError ? <Text style={styles.error}>{error}</Text> : null}
+      {hasError ? (
+        <Text style={[styles.error, {color: colors.error}]}>{error}</Text>
+      ) : null}
     </View>
   );
 }
@@ -60,24 +70,16 @@ const styles = StyleSheet.create({
   },
   label: {
     ...typography.label,
-    color: colors.textPrimary,
   },
   input: {
     ...typography.body,
     minHeight: 44,
     borderWidth: 1,
-    borderColor: colors.borderStrong,
     borderRadius: 8,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    color: colors.textPrimary,
-    backgroundColor: colors.surface,
-  },
-  inputError: {
-    borderColor: colors.error,
   },
   error: {
     ...typography.caption,
-    color: colors.error,
   },
 });

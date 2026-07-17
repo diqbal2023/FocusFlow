@@ -8,6 +8,7 @@ import {colors} from '../constants/colors';
 import {spacing} from '../constants/spacing';
 import {typography} from '../constants/typography';
 import {goalManager} from '../managers/GoalManager';
+import {settingsManager} from '../managers/SettingsManager';
 import type {
   GoalPeriod,
   GoalPeriodProgress,
@@ -178,8 +179,8 @@ export function GoalsScreen() {
       }
     };
 
-    void refresh();
-    const interval = setInterval(() => void refresh(), 1000);
+    refresh();
+    const interval = setInterval(refresh, 1000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -202,14 +203,18 @@ export function GoalsScreen() {
     }
   };
 
-  const applyTargets = (period: GoalPeriod) => {
+  const applyTargets = async (period: GoalPeriod) => {
     const form = period === 'daily' ? dailyForm : weeklyForm;
     try {
-      const next = goalManager.setTargets(period, {
+      const targets = {
         tasks: Number(form.tasks),
         focusSessions: Number(form.focusSessions),
         focusMinutes: Number(form.focusMinutes),
-      });
+      };
+      const settings = settingsManager.getCurrent();
+      settings.goals[period] = targets;
+      await settingsManager.save(settings);
+      const next = goalManager.getProgress();
       setGoals(next);
       setMessage(`${period === 'daily' ? 'Daily' : 'Weekly'} targets updated.`);
     } catch (error) {
@@ -256,7 +261,7 @@ export function GoalsScreen() {
           <AppButton
             title="Reset Goals"
             variant="danger"
-            onPress={() => void resetGoals()}
+            onPress={resetGoals}
             testID="goals-reset"
           />
         </View>

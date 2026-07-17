@@ -1,5 +1,5 @@
 import {StyleSheet, View, type StyleProp, type ViewStyle} from 'react-native';
-import {colors} from '../constants/colors';
+import {useTheme} from '../context/ThemeContext';
 import {spacing} from '../constants/spacing';
 
 type AppCardProps = {
@@ -9,8 +9,15 @@ type AppCardProps = {
 };
 
 export function AppCard({children, style, testID}: AppCardProps) {
+  const {colors} = useTheme();
   return (
-    <View testID={testID} style={[styles.card, style]}>
+    <View
+      testID={testID}
+      style={[
+        styles.card,
+        {backgroundColor: colors.surface, borderColor: colors.border},
+        style,
+      ]}>
       {children}
     </View>
   );
@@ -18,9 +25,7 @@ export function AppCard({children, style, testID}: AppCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: 12,
     padding: spacing.xl,
   },

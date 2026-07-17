@@ -29,6 +29,7 @@ export class FakeDatabaseService implements IDatabaseService {
   initialized = false;
   failNextExecute: Error | null = null;
   schemaStatements: string[] = [];
+  settingsPayload: string | null = null;
 
   getDatabasePath(): string {
     return './focusflow.db';
@@ -66,6 +67,13 @@ export class FakeDatabaseService implements IDatabaseService {
         deleted_at TEXT NOT NULL
       );`,
     );
+    await this.executeSql(
+      `CREATE TABLE IF NOT EXISTS settings (
+        settings_key TEXT PRIMARY KEY NOT NULL,
+        payload TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );`,
+    );
   }
 
   async executeSql(
@@ -93,6 +101,28 @@ export class FakeDatabaseService implements IDatabaseService {
 
     if (/^BEGIN/i.test(normalized) || /^COMMIT/i.test(normalized) || /^ROLLBACK/i.test(normalized)) {
       return {rows: [], rowsAffected: 0, insertId: 0};
+    }
+
+    if (/^INSERT OR REPLACE INTO settings/i.test(normalized)) {
+      this.settingsPayload = String(params[1]);
+      return {rows: [], rowsAffected: 1, insertId: 0};
+    }
+
+    if (/^SELECT payload FROM settings/i.test(normalized)) {
+      return {
+        rows:
+          this.settingsPayload === null
+            ? []
+            : [{payload: this.settingsPayload}],
+        rowsAffected: 0,
+        insertId: 0,
+      };
+    }
+
+    if (/^DELETE FROM settings/i.test(normalized)) {
+      const existed = this.settingsPayload !== null;
+      this.settingsPayload = null;
+      return {rows: [], rowsAffected: existed ? 1 : 0, insertId: 0};
     }
 
     if (/^INSERT INTO tasks/i.test(normalized)) {

@@ -43,7 +43,42 @@ export const lightColors = {
   sidebarItemPressed: '#374151',
 } as const;
 
-/** Active theme colors (light for now). */
-export const colors = lightColors;
+export type ColorTokens = {
+  [K in keyof typeof lightColors]: string;
+};
 
-export type ColorTokens = typeof lightColors;
+export const darkColors: ColorTokens = {
+  background: '#111827',
+  surface: '#1F2937',
+  surfaceMuted: '#172033',
+  border: '#374151',
+  borderStrong: '#4B5563',
+  textPrimary: '#F9FAFB',
+  textSecondary: '#D1D5DB',
+  textMuted: '#9CA3AF',
+  textOnPrimary: '#FFFFFF',
+  textOnDanger: '#FFFFFF',
+  primary: '#3B82F6',
+  primaryPressed: '#2563EB',
+  primaryMuted: '#1E3A5F',
+  secondary: '#374151',
+  secondaryPressed: '#4B5563',
+  secondaryBorder: '#6B7280',
+  danger: '#EF4444',
+  dangerPressed: '#DC2626',
+  dangerMuted: '#5F2020',
+  disabledBackground: '#374151',
+  disabledText: '#9CA3AF',
+  error: '#FCA5A5',
+  focusRing: '#60A5FA',
+  sidebarBackground: '#0B1220',
+  sidebarBorder: '#374151',
+  sidebarText: '#D1D5DB',
+  sidebarTextMuted: '#9CA3AF',
+  sidebarTextActive: '#FFFFFF',
+  sidebarItemActive: '#2563EB',
+  sidebarItemPressed: '#374151',
+};
+
+/** Legacy light tokens for screens awaiting full token-hook migration. */
+export const colors = lightColors;

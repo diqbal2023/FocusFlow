@@ -71,24 +71,24 @@ For every stage, follow this workflow:
 - [x] 15. GoalManager tests
 - [x] 16. Statistics
 - [x] 17. StatisticsEngine tests
-- [ ] 18. Settings — Next
-- [ ] 19. Settings tests
-- [ ] 20. Windows features
+- [x] 18. Settings
+- [x] 19. Settings tests
+- [ ] 20. Windows features — Next
 - [ ] 21. Final integration tests
 
 **Current status notes**
 
-- Stages 1–17 are complete.
-- Stage 18 (Settings) is next.
-- Stages 18–21 have not started.
+- Stages 1–19 are complete.
+- Stage 20 (Windows features) is next.
 - Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic and runtime completion events, Recently Deleted trash behavior, SQLite persistence, TaskRepository unit tests, TimerService, SessionManager completion events, GoalManager, and StatisticsEngine.
 - Tasks persist in a local SQLite database via TaskRepository / DatabaseService.
-- Focus Session UI is wired to SessionManager / TimerService (timestamp-based Pomodoro: 25/5/15 min, long break after 4 completed work sessions). Session state is not persisted yet (no SessionRepository).
+- Focus Session UI is wired to SessionManager / TimerService with persisted configurable 25/5/15 defaults, long-break interval 4, and optional auto-start. Active/paused segment state is not persisted.
 - Skipped work sessions do not count toward completed-work or long-break cycle progress (documented in SessionManager and UI).
-- Goals use real stored completed-task totals and current-runtime SessionManager totals; goal target persistence remains deferred to Settings.
+- Goals use real stored completed-task totals and actual completed work-event durations; daily/weekly targets persist through Settings.
 - Statistics uses typed runtime-only completion histories from TaskManager and SessionManager. Existing persisted Completed tasks are exposed only as an undated snapshot and are never assigned fabricated historical dates.
 - StatisticsEngine provides normalized selected-day summaries, Monday–Sunday weeks, the capped 40/40/20 score, exact result boundaries/messages, Fair-or-better streaks, and ordered zero-filled history up to 90 days.
-- Statistics history is not persisted across restarts; no SessionRepository/schema change was introduced. Settings persistence and Windows-specific integrations are not implemented yet.
+- Settings use a singleton, version-tolerant JSON payload in SQLite. System/Light/Dark is applied to the app shell and shared components; remaining screen-local static styles are deferred visual cleanup.
+- Onboarding remains deferred because it is not part of Stages 18–19. Statistics history remains runtime-only. Notifications are a stored preference only; Windows-native behavior begins in Stage 20.
 
 ---
 
@@ -501,26 +501,22 @@ For every stage, follow this workflow:
 
 ### Stage 18 — Settings
 
-- **Status:** Not Started
+- **Status:** Complete
 - **Objective:** Implement application configuration.
 - **Main implementation work:**
   - Work / short-break / long-break durations
   - Auto-start
   - Notification and sound preferences
   - Theme selection
-  - Ambient audio choice
   - Goal defaults
-  - Backup preferences
-  - Startup behavior
-  - Minimize-to-tray preference
   - Local persistence
 - **Expected files created or modified:**
   - `src/models/AppSettings.ts`
   - `src/repositories/SettingsRepository.ts`
   - `src/context/SettingsContext.tsx`
   - Settings screen updates
-- **Features included:** Configurable app settings with local storage
-- **Features intentionally excluded:** Full native tray/startup wiring (Stage 20) beyond preference fields
+- **Features included:** Validated timer, goal, appearance, and general preferences; SQLite persistence; manager application; loading/error/reset UI
+- **Features intentionally excluded:** Notification delivery, tray/startup/MSIX/export/backup, onboarding, session/statistics persistence, and remaining screen-local theme cleanup
 - **Testing required:** Dedicated Stage 19 automation; manual settings screen checks
 - **Completion criteria:** Settings can be viewed/updated and stored locally
 - **Recommended Git commit message:** `Implement application settings`
@@ -528,7 +524,7 @@ For every stage, follow this workflow:
 
 ### Stage 19 — Settings tests
 
-- **Status:** Not Started
+- **Status:** Complete
 - **Objective:** Test settings defaults, validation, updates, and persistence.
 - **Main implementation work:**
   - Settings unit/integration tests and repository checks
@@ -544,13 +540,13 @@ For every stage, follow this workflow:
   - Theme preference
   - Reload after restart
   - Repository persistence
-- **Completion criteria:** Settings tests pass; prior suites remain green
+- **Completion criteria:** Complete — 13 suites / 111 tests pass; TypeScript and changed-file lint pass; Windows build/deploy/start exits 0
 - **Recommended Git commit message:** `Add settings tests`
 - **Dependencies on earlier stages:** Stage 18
 
 ### Stage 20 — Windows features
 
-- **Status:** Not Started
+- **Status:** Next
 - **Objective:** Add native Windows desktop behavior.
 - **Main implementation work:**
   - Native notifications

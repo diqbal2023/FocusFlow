@@ -94,6 +94,13 @@ export class DatabaseService implements IDatabaseService {
         deleted_at TEXT NOT NULL
       );`,
     );
+    await this.executeSql(
+      `CREATE TABLE IF NOT EXISTS settings (
+        settings_key TEXT PRIMARY KEY NOT NULL,
+        payload TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );`,
+    );
   }
 
   async executeSql(

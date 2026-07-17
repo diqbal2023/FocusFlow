@@ -1,5 +1,5 @@
 import {Pressable, StyleSheet, Text, type ViewStyle} from 'react-native';
-import {colors} from '../constants/colors';
+import {useTheme} from '../context/ThemeContext';
 import {spacing} from '../constants/spacing';
 import {typography} from '../constants/typography';
 
@@ -24,6 +24,25 @@ export function AppButton({
   accessibilityLabel,
   style,
 }: AppButtonProps) {
+  const {colors: themeColors} = useTheme();
+  const backgroundColor =
+    variant === 'primary'
+      ? themeColors.primary
+      : variant === 'danger'
+        ? themeColors.danger
+        : themeColors.secondary;
+  const labelColor =
+    variant === 'secondary'
+      ? themeColors.textPrimary
+      : variant === 'danger'
+        ? themeColors.textOnDanger
+        : themeColors.textOnPrimary;
+  const pressedBackgroundColor =
+    variant === 'primary'
+      ? themeColors.primaryPressed
+      : variant === 'danger'
+        ? themeColors.dangerPressed
+        : themeColors.secondaryPressed;
   return (
     <Pressable
       testID={testID}
@@ -35,15 +54,30 @@ export function AppButton({
       style={({pressed}) => [
         styles.base,
         stylesByVariant[variant],
-        pressed && !disabled && pressedByVariant[variant],
-        disabled && styles.disabled,
+        {
+          backgroundColor: disabled
+            ? themeColors.disabledBackground
+            : backgroundColor,
+          borderColor:
+            variant === 'secondary'
+              ? themeColors.secondaryBorder
+              : backgroundColor,
+        },
+        pressed &&
+          !disabled && {
+            backgroundColor: pressedBackgroundColor,
+            borderColor:
+              variant === 'secondary'
+                ? themeColors.secondaryBorder
+                : pressedBackgroundColor,
+          },
         style,
       ]}>
       <Text
         style={[
           styles.label,
           labelByVariant[variant],
-          disabled && styles.labelDisabled,
+          {color: disabled ? themeColors.disabledText : labelColor},
         ]}>
         {title}
       </Text>
@@ -62,55 +96,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  disabled: {
-    backgroundColor: colors.disabledBackground,
-    borderColor: colors.disabledBackground,
-  },
   label: {
     ...typography.button,
-  },
-  labelDisabled: {
-    color: colors.disabledText,
   },
 });
 
 const stylesByVariant = StyleSheet.create({
   primary: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    borderColor: 'transparent',
   },
   secondary: {
-    backgroundColor: colors.secondary,
-    borderColor: colors.secondaryBorder,
+    borderColor: 'transparent',
   },
   danger: {
-    backgroundColor: colors.danger,
-    borderColor: colors.danger,
-  },
-});
-
-const pressedByVariant = StyleSheet.create({
-  primary: {
-    backgroundColor: colors.primaryPressed,
-    borderColor: colors.primaryPressed,
-  },
-  secondary: {
-    backgroundColor: colors.secondaryPressed,
-  },
-  danger: {
-    backgroundColor: colors.dangerPressed,
-    borderColor: colors.dangerPressed,
+    borderColor: 'transparent',
   },
 });
 
 const labelByVariant = StyleSheet.create({
   primary: {
-    color: colors.textOnPrimary,
+    color: '#FFFFFF',
   },
   secondary: {
-    color: colors.textPrimary,
+    color: '#111827',
   },
   danger: {
-    color: colors.textOnDanger,
+    color: '#FFFFFF',
   },
 });

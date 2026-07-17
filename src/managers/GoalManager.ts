@@ -10,10 +10,7 @@ import {
   type GoalsProgress,
   type GoalTargets,
 } from '../models/Goal';
-import {
-  POMODORO_DURATIONS_MS,
-  sessionManager,
-} from './SessionManager';
+import {sessionManager} from './SessionManager';
 import {taskManager} from './TaskManager';
 
 const METRICS: GoalMetric[] = ['tasks', 'focusSessions', 'focusMinutes'];
@@ -47,8 +44,8 @@ function normalizeProgress(progress: GoalProgress): GoalProgress {
 }
 
 function normalizeTarget(value: number): number {
-  if (!Number.isInteger(value) || value < 1) {
-    throw new Error('Goal targets must be whole numbers greater than zero.');
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error('Goal targets must be whole numbers zero or greater.');
   }
   return value;
 }
@@ -76,6 +73,9 @@ function subtractProgress(
 }
 
 function percentage(completed: number, target: number): number {
+  if (target === 0) {
+    return 100;
+  }
   return Math.min(100, Math.round((completed / target) * 100));
 }
 
@@ -165,8 +165,12 @@ export class GoalManager {
       task => task.status === 'Completed',
     ).length;
     const focusSessions = sessionManager.getCompletedWorkSessions();
-    const focusMinutes =
-      focusSessions * (POMODORO_DURATIONS_MS.work / 60_000);
+    const focusMinutes = Math.round(
+      sessionManager
+        .getCompletionHistory()
+        .filter(event => event.mode === 'work')
+        .reduce((total, event) => total + event.durationMs, 0) / 60_000,
+    );
 
     return this.synchronizeProgress(
       {
