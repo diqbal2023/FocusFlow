@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import {fireEvent, render, screen} from '@testing-library/react-native';
+import {act, fireEvent, render, screen} from '@testing-library/react-native';
 import App from '../App';
 
 function expectNavSelected(testID: string, selected: boolean) {
@@ -52,6 +52,9 @@ describe('FocusFlow navigation shell', () => {
     await renderAppOnTasks();
 
     fireEvent.press(screen.getByTestId('nav-goals'));
+    await act(async () => {
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
+    });
 
     expect(
       screen.getByText('Set and monitor productivity goals.'),

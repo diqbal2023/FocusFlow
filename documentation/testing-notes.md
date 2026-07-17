@@ -5,12 +5,12 @@ Working notes for the IEEE Software Test Document.
 
 | Field | Value |
 |---|---|
-| Last updated | 2026-07-16 (Stages 1–13 integrated; Focus Session long-break counter fix) |
-| Current stage covered | Stages 1–13 (Focus Session UI, TimerService, SessionManager, timer/session tests) |
-| Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx`, `__tests__/TaskValidation.test.ts`, `__tests__/TaskManager.test.ts`, `__tests__/TaskManager.trash.test.ts`, `__tests__/TaskRepository.test.ts`, `__tests__/TimerService.test.ts`, `__tests__/SessionManager.test.ts` |
+| Last updated | 2026-07-16 (Stages 1–15 integrated; Goals + GoalManager) |
+| Current stage covered | Stages 1–15 (Goals UI, GoalManager, direct goal tests) |
+| Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx`, `__tests__/TaskValidation.test.ts`, `__tests__/TaskManager.test.ts`, `__tests__/TaskManager.trash.test.ts`, `__tests__/TaskRepository.test.ts`, `__tests__/TimerService.test.ts`, `__tests__/SessionManager.test.ts`, `__tests__/GoalManager.test.ts` |
 | Primary command | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
 | Alternate command | `npm test` |
-| Latest result | 9 suites / 72 tests passed / 0 failed / 0 snapshots |
+| Latest result | 10 suites / 82 tests passed / 0 failed / 0 snapshots |
 | Results log | `test-results.txt` (project root) |
 
 ## How to update this file
@@ -36,7 +36,9 @@ Working notes for the IEEE Software Test Document.
 | 11 | Focus Session / Timer UI | Complete / passing |
 | 12 | TimerService + SessionManager | Complete / passing |
 | 13 | Timer / SessionManager Jest tests + long-break counter fix | Complete / passing |
-| 14+ | Goals, statistics, settings, etc. | Not started |
+| 14 | Goals model, GoalManager integration, redesigned GoalsScreen | Complete / passing |
+| 15 | GoalManager direct unit tests (TC_GOAL_01–10) | Complete / passing |
+| 16+ | Statistics, settings, Windows features, final integration | Not started |
 
 ---
 
@@ -44,8 +46,8 @@ Working notes for the IEEE Software Test Document.
 
 - **Test Scope**
   - Automated Jest UI and unit tests for FocusFlow React Native for Windows (TypeScript)
-  - Covers: navigation shell, shared UI components, TasksScreen interactions, task validation, TaskManager business logic (including Recently Deleted), SqliteTaskRepository persistence behavior (via injected fake `DatabaseService`), Focus Session / TimerService / SessionManager (timestamp timer + Pomodoro flow)
-  - Does not cover as automated Jest: native turbo-sqlite engine I/O, Windows packaging/deploy, Goals/Statistics/Settings, notifications, export, authentication, cloud services
+  - Covers: navigation shell, shared UI components, TasksScreen interactions, task validation, TaskManager business logic (including Recently Deleted), SqliteTaskRepository persistence behavior (via injected fake `DatabaseService`), Focus Session / TimerService / SessionManager, and GoalManager daily/weekly target/progress calculations
+  - Does not cover as automated Jest: native turbo-sqlite engine I/O, Windows packaging/deploy, GoalsScreen visual layout, Statistics/Settings, notifications, export, authentication, cloud services
 
 - **Test Objectives**
   - Verify default screen and sidebar navigation between 5 sections
@@ -56,7 +58,8 @@ Working notes for the IEEE Software Test Document.
   - Confirm SqliteTaskRepository initialize/CRUD/trash mapping uses parameterized SQL and typed Task rows
   - Confirm TimerService timestamp countdown (start/pause/resume/reset/skip/accuracy)
   - Confirm SessionManager Pomodoro transitions, counters, long-break cycle, and skip/interrupt rules
-  - Confirm prior application suites remain green after Stages 7–13 work
+  - Confirm GoalManager defaults, task/session/minute percentages, daily/weekly completion, remaining amounts, formatted progress, and reset behavior
+  - Confirm prior application suites remain green after Stages 14–15 work
 
 - **Test Items**
   - `App.tsx` + `Sidebar`
@@ -67,6 +70,9 @@ Working notes for the IEEE Software Test Document.
   - `src/types/task.ts`
   - `src/managers/TaskManager.ts`
   - `src/managers/SessionManager.ts`
+  - `src/managers/GoalManager.ts`
+  - `src/models/Goal.ts`
+  - `src/screens/GoalsScreen.tsx`
   - `src/services/TimerService.ts`
   - `src/repositories/SqliteTaskRepository.ts`, `ITaskRepository.ts`, `InMemoryTaskRepository.ts`
   - `src/services/DatabaseService.ts`
@@ -83,6 +89,9 @@ Working notes for the IEEE Software Test Document.
   - Focus Session timer controls and Pomodoro mode transitions (work / short break / long break)
   - Completed-work and break counters; long-break after 4 completed work sessions; cycle reset after long break
   - Skip does not count as completed work (documented decision)
+  - Daily/weekly goal defaults and editable targets
+  - Strongly typed task/session/minute progress, capped percentages, overall completion, status, summaries, completion messages, and target-preserving reset
+  - Goal progress adapter reads actual stored completed tasks and current-runtime completed focus sessions
 
 - **Features Not Yet Tested**
   - Native turbo-sqlite engine behavior inside Jest (suite uses fake/in-memory doubles)
@@ -90,7 +99,9 @@ Working notes for the IEEE Software Test Document.
   - Schema migrations / corrupt-database recovery / large-dataset performance
   - Parent/subtask completion business rules (not implemented)
   - Session persistence / SessionRepository
-  - Goals / Statistics / Settings persistence
+  - Goal target/reset persistence (deferred to Settings)
+  - Calendar-accurate daily/weekly goal history (task completion timestamps and persisted session records do not yet exist)
+  - Statistics / Settings persistence
   - Notifications, system tray, export, authentication, cloud services
   - Visual style details (colors, spacing, fonts) as automated assertions
   - Windows packaging/deploy as an automated test
@@ -119,19 +130,21 @@ Working notes for the IEEE Software Test Document.
   - Native deploy can fail if FocusFlow locks DLLs (see DEF-004)
   - PlatformToolset patch for turbo-sqlite (`postinstall`) must remain after reinstalls (DEF-006)
   - Focus Session state is not persisted across app restart
+  - Goal targets and reset baselines are in memory and return to defaults after app restart
+  - Existing Task/Session APIs provide no completion timestamps; daily and weekly cards currently use the same available real totals, with independent targets/reset baselines
   - Full 25-minute UI wait for natural work completion is not part of routine manual checks; Jest covers natural completion / long-break paths with timestamps
   - If `npm test` preset breaks, use `npm run test:windows`
 
 - **Pass/Fail Criteria**
   - **Pass:** actual behavior matches expected behavior and the Jest assertion succeeds; suite exits 0
   - **Fail:** behavior differs from expected result, an assertion fails, or the test suite cannot execute
-  - **Stage gate (current):** Stages 1–13 green (`Failed Tests: 0`); Stage 14 (Goals) is next
+  - **Stage gate (current):** Stages 1–15 green (`Failed Tests: 0`); Stage 16 (Statistics) is next
 
 ---
 
 ## 2. TEST CASE INFORMATION
 
-Primary case catalog for **Stages 1–13** is below (single integrated table). All cases are **Pass** in the latest `test-results.txt` run (**72/72**).
+Primary case catalog for **Stages 1–15** is below (single integrated table). All cases are **Pass** in the latest `test-results.txt` run (**82/82**).
 
 | Test Case ID | Objective | Input | Expected Output | Execution Steps | Actual Output | Pass/Fail |
 |---|---|---|---|---|---|---|
@@ -207,6 +220,16 @@ Primary case catalog for **Stages 1–13** is below (single integrated table). A
 | TC_SESSION_07 | Long break finish resets cycle | Complete long break | Work mode; cycle 0; break +1 | Run `SessionManager.test.ts` | Cycle reset | Pass |
 | TC_SESSION_08 | No duplicate complete at zero | Multiple ticks at end | Single completion | Run `SessionManager.test.ts` | Once only | Pass |
 | TC_SESSION_09 | Long break pause/resume/reset/skip | Controls on long break | All controls work; skip → work | Run `SessionManager.test.ts` | Controls OK | Pass |
+| TC_GOAL_01 | Verify daily defaults | New GoalManager | 5 tasks, 4 sessions, 120 minutes | Instantiate; read daily targets | Defaults matched | Pass |
+| TC_GOAL_02 | Verify weekly defaults | New GoalManager | 30 tasks, 20 sessions, 600 minutes | Instantiate; read weekly targets | Defaults matched | Pass |
+| TC_GOAL_03 | Calculate task progress | 2 completed tasks | 2/5, 3 remaining, 40%, In progress | Synchronize totals; inspect daily task metric | Values and formatting matched | Pass |
+| TC_GOAL_04 | Calculate session/minute progress | 3 sessions, 75 minutes | 75% sessions; 63% minutes | Synchronize totals; inspect daily metrics | Values matched | Pass |
+| TC_GOAL_05 | Calculate weekly progress | 15 tasks, 10 sessions, 300 minutes | 50% each and overall | Synchronize totals; inspect weekly result | 50% overall | Pass |
+| TC_GOAL_06 | Complete all daily targets | 5 tasks, 4 sessions, 120 minutes | Complete, 100%, completion message | Synchronize exact defaults | Daily complete | Pass |
+| TC_GOAL_07 | Keep period incomplete with one missing target | 5 tasks, 4 sessions, 119 minutes | In progress; no completion message | Synchronize totals; inspect daily result | Incomplete as expected | Pass |
+| TC_GOAL_08 | Complete configured weekly targets | Targets/progress 2, 1, 25 | Weekly Complete + message | Set targets; synchronize totals | Weekly complete | Pass |
+| TC_GOAL_09 | Reset periods while preserving targets | Custom targets + nonzero progress | Selected period zeroed; targets retained | Reset daily, then weekly; inspect both | Progress reset; targets retained | Pass |
+| TC_GOAL_10 | Cap and average percentages | 50%, 50%, over-target minutes | Metrics 50/50/100; overall 67% | Set targets; synchronize totals | 67% overall | Pass |
 
 ---
 
@@ -289,11 +312,23 @@ npm run test:windows -- --verbose > test-results.txt 2>&1
   3. For manual UI: open Focus Session; verify Start/Pause/Resume/Skip/Reset and countdown updates
 - **Post-Execution Actions:** Record pass/fail; note that Skip does not increment completed-work counters (by design)
 
+### TP-GOALS — Goals / GoalManager (Stages 14–15)
+
+- **Procedure ID:** TP-GOALS
+- **Description:** Verify goal defaults, progress calculations, completion rules, formatted output, and resets
+- **Test Environment:** Jest direct unit tests; no snapshots; optional Windows UI spot-check
+- **Steps to Execute:**
+  1. Run the preferred full command
+  2. Confirm `GoalManager.test.ts` executes TC_GOAL_01–10
+  3. Run `npx tsc --noEmit`
+  4. For manual UI: open Goals, review daily/weekly cards and bars, edit targets, complete available task/session activity, and select Reset Goals
+- **Post-Execution Actions:** Record actual automated/manual results and known data-history limitations
+
 ---
 
 ## 4. TEST RESULTS INFORMATION
 
-Latest full automated run (`test-results.txt`): **9 suites / 72 tests passed / 0 failed / 0 snapshots**.
+Latest full automated run (`test-results.txt`): **10 suites / 82 tests passed / 0 failed / 0 snapshots**.
 
 | Test Case ID | Description | Result | Test Log (brief) | Defect ID |
 |---|---|---|---|---|
@@ -308,13 +343,16 @@ Latest full automated run (`test-results.txt`): **9 suites / 72 tests passed / 0
 | TC_TASK_REPO_REG_01–03 | Repository regressions | Pass | Path fallback; re-init; missing update | N/A |
 | TC_TIMER_01–05, TC_TIMER_08 | TimerService | Pass | Timestamp countdown | N/A |
 | TC_TIMER_06–07, TC_SESSION_01–09 | SessionManager / Pomodoro | Pass | Modes, counters, long-break cycle | N/A |
+| TC_GOAL_01–10 | GoalManager daily/weekly goals | Pass | Defaults, progress, completion, reset, percentages | N/A |
 
 ---
 
 ## 5. DEFECT TRACKING INFORMATION
 
-Latest automated product test run: **0 failed** (**9 suites / 72 tests passed**).  
-Stages 1–13 complete. Product defects from Stages 9–10 are fixed (DEF-005–008). DEF-004 remains an open deploy workaround when the app locks DLLs.
+Latest automated product test run: **0 failed** (**10 suites / 82 tests passed**).  
+Stages 1–15 complete. Product defects from Stages 9–10 are fixed (DEF-005–008). DEF-004 remains an open deploy workaround when the app locks DLLs.
+
+No defects were discovered during Stages 14–15.
 
 Historical defects found during setup / earlier automated testing (and fixed) are logged below.
 
@@ -346,13 +384,13 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 
 | Metric | Value |
 |---|---|
-| Total Test Suites | 9 |
-| Total Test Cases | 72 |
-| Passed | 72 |
+| Total Test Suites | 10 |
+| Total Test Cases | 82 |
+| Passed | 82 |
 | Failed | 0 |
 | Pass Percentage | 100% |
 | Snapshots | 0 |
-| Overall System Status (tested scope) | Stages 1–13 green; Focus Session / TimerService / SessionManager covered; Stage 14 (Goals) next |
+| Overall System Status (tested scope) | Stages 1–15 green; Goals / GoalManager covered; Stage 16 (Statistics) next |
 
 ### Suite map
 
@@ -367,8 +405,9 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | SqliteTaskRepository | `__tests__/TaskRepository.test.ts` | TC_TASK_REPO_01–10, TC_TASK_REPO_REG_01–03 |
 | TimerService | `__tests__/TimerService.test.ts` | TC_TIMER_01–05, TC_TIMER_08 |
 | SessionManager | `__tests__/SessionManager.test.ts` | TC_TIMER_06–07, TC_SESSION_01–09 |
+| GoalManager | `__tests__/GoalManager.test.ts` | TC_GOAL_01–10 |
 
-### Implementation milestones (Stages 1–13)
+### Implementation milestones (Stages 1–15)
 
 | Sprint | Stages | Delivered | Key test IDs |
 |---|---|---|---|
@@ -377,6 +416,7 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Task business logic | 7–8 | `TaskManager`, unit + trash tests | TC_TASK_MGR_*, TC_TASK_TRASH_* |
 | Task persistence | 9–10 | SQLite, `SqliteTaskRepository`, repo tests | TC_TASK_REPO_*, TC_TASK_REPO_REG_* |
 | Focus Session & timer | 11–13 | FocusScreen, `TimerService`, `SessionManager`, long-break cycle fix | TC_TIMER_*, TC_SESSION_* |
+| Goals | 14–15 | Goal model, GoalManager, redesigned GoalsScreen, direct tests | TC_GOAL_* |
 
 ### Key implementation notes (integrated)
 
@@ -396,6 +436,14 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 - Session state is **not** persisted (no `SessionRepository` yet).
 - `FocusScreen` is presentational only; business logic stays in managers/services.
 
+**Goals (Stages 14–15)**
+- Defaults: daily 5 tasks / 4 sessions / 120 minutes; weekly 30 / 20 / 600.
+- `GoalManager` owns target validation, progress synchronization, metric/overall percentages, status/summary formatting, completion rules, and reset baselines.
+- `GoalsScreen` uses `PageHeader`, shared cards/inputs/buttons/tokens, polls GoalManager for automatic updates, and contains display/form interaction only.
+- Progress is not fabricated: task totals come from active stored tasks marked Completed; session totals come from the shared runtime `SessionManager`; focus minutes use the configured 25-minute completed-work duration.
+- Task completion timestamps and persisted session records do not exist, so calendar-accurate daily-versus-weekly historical filtering is not possible in this stage. Daily/weekly targets and reset baselines remain independent.
+- Goal persistence is deferred to Stage 18 Settings rather than adding a standalone repository.
+
 ### Manual verification summary
 
 | Area | Method | Result |
@@ -403,15 +451,17 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | SQLite persistence (Stage 9) | Process restart + direct DB insert/update/delete | Create/edit/delete survived restart — Pass |
 | Focus Session UI (Stages 11–13) | `npx react-native run-windows` + UI Automation | Start/Pause/Resume/Skip/Reset — Pass; countdown updates — Pass |
 | Long break full UI cycle | Not run at real 25m×4 duration | Covered by Jest TC_TIMER_07, TC_SESSION_07 |
+| Goals UI (Stages 14–15) | `npx react-native run-windows` | Build, deploy, and app start — Pass after closing the existing FocusFlow process that held `ReactNativeTurboSqlite.dll` (known DEF-004 pattern). Interactive visual/click verification was not available in this agent environment; daily/weekly calculations, completion messages, percentages, and reset semantics are covered by TC_GOAL_01–10. |
 
 Deploy note: close running FocusFlow before redeploy if DLL file lock occurs (DEF-004).
+Stage 14–15 launch note: the first overlapping native compile reported C1041 on `vc145.pdb`; a single retry built successfully. Deployment then encountered the known DLL lock, `tasklist /m ReactNativeTurboSqlite.dll` identified `FocusFlow.exe`, and closing only that process allowed the final build/deploy/start command to exit 0.
 
 ### Features not yet tested
 
-- Goals / GoalManager (Stage 14+)
 - Statistics / StatisticsEngine
 - Settings persistence
 - Session persistence / SessionRepository
+- Calendar-accurate goal history and goal target persistence
 - Notifications / system tray
 - Schema migrations / corrupt DB recovery / large datasets
 - Final integration

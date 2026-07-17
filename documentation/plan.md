@@ -67,9 +67,9 @@ For every stage, follow this workflow:
 - [x] 11. Timer UI
 - [x] 12. TimerService and SessionManager
 - [x] 13. Timer tests with fake timers
-- [ ] 14. Goals — Next
-- [ ] 15. GoalManager tests
-- [ ] 16. Statistics
+- [x] 14. Goals
+- [x] 15. GoalManager tests
+- [ ] 16. Statistics — Next
 - [ ] 17. StatisticsEngine tests
 - [ ] 18. Settings
 - [ ] 19. Settings tests
@@ -78,14 +78,15 @@ For every stage, follow this workflow:
 
 **Current status notes**
 
-- Stages 1–13 are complete.
-- Stage 14 (Goals) is next.
-- Stages 15–21 have not started.
-- Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic, Recently Deleted trash behavior, SQLite persistence, TaskRepository unit tests, TimerService, and SessionManager.
+- Stages 1–15 are complete.
+- Stage 16 (Statistics) is next.
+- Stages 16–21 have not started.
+- Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic, Recently Deleted trash behavior, SQLite persistence, TaskRepository unit tests, TimerService, SessionManager, and GoalManager.
 - Tasks persist in a local SQLite database via TaskRepository / DatabaseService.
 - Focus Session UI is wired to SessionManager / TimerService (timestamp-based Pomodoro: 25/5/15 min, long break after 4 completed work sessions). Session state is not persisted yet (no SessionRepository).
 - Skipped work sessions do not count toward completed-work or long-break cycle progress (documented in SessionManager and UI).
-- Goals, statistics, settings persistence, and Windows-specific integrations are not implemented yet.
+- Goals use real stored completed-task totals and current-runtime SessionManager totals. Calendar-accurate daily/weekly history is unavailable until task completion timestamps and session persistence exist; goal target persistence is deferred to Settings.
+- Statistics, settings persistence, and Windows-specific integrations are not implemented yet.
 
 ---
 
@@ -403,7 +404,7 @@ For every stage, follow this workflow:
 
 ### Stage 14 — Goals
 
-- **Status:** Next
+- **Status:** Complete
 - **Objective:** Build daily and weekly goal functionality.
 - **Main implementation work:**
   - Daily and weekly targets
@@ -416,13 +417,13 @@ For every stage, follow this workflow:
 - **Features included:** Goal tracking UI and model
 - **Features intentionally excluded:** Full GoalManager test suite (Stage 15), advanced notifications
 - **Testing required:** Manual goals screen checks; automated manager tests in Stage 15
-- **Completion criteria:** Users can view/set basic daily/weekly goals and see progress placeholders
+- **Completion criteria:** Users can view/set daily/weekly goals and see calculated progress from the task/session data currently available
 - **Recommended Git commit message:** `Implement daily and weekly goals`
 - **Dependencies on earlier stages:** Stages 5–13 for meaningful progress inputs where available
 
 ### Stage 15 — GoalManager tests
 
-- **Status:** Not Started
+- **Status:** Complete
 - **Objective:** Test goal calculations and completion rules.
 - **Main implementation work:**
   - `GoalManager`
@@ -445,7 +446,7 @@ For every stage, follow this workflow:
 
 ### Stage 16 — Statistics
 
-- **Status:** Not Started
+- **Status:** Next
 - **Objective:** Build the productivity statistics dashboard.
 - **Main implementation work:**
   - Completed tasks and sessions
