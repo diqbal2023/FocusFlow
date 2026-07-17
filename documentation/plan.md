@@ -73,8 +73,8 @@ For every stage, follow this workflow:
 - [x] 17. StatisticsEngine tests
 - [x] 18. Settings
 - [x] 19. Settings tests
-- [ ] 20. Windows features — Next
-- [ ] 21. Final integration tests
+- [ ] 20. Windows Features and Release Preparation — Next
+- [ ] 21. Final Integration and Requirements Verification
 
 **Current status notes**
 
@@ -544,70 +544,104 @@ For every stage, follow this workflow:
 - **Recommended Git commit message:** `Add settings tests`
 - **Dependencies on earlier stages:** Stage 18
 
-### Stage 20 — Windows features
+### Stage 20 — Windows Features and Release Preparation
 
 - **Status:** Next
-- **Objective:** Add native Windows desktop behavior.
+- **Objective:** Complete required Windows functionality and prepare the Windows release artifacts for final verification.
 - **Main implementation work:**
-  - Native notifications
-  - Audio alerts
-  - Minimize to system tray
-  - Launch on Windows login
-  - Timer continuation while minimized
-  - Crash recovery and restore active session
-  - Local AppData path usage
-  - Optional backup and restore
-  - CSV/PDF export if included in current project scope
-- **Expected files created or modified:**
-  - Windows integration modules/services as needed
-  - Settings wiring for tray/startup preferences
-  - Manual procedures documented in `testing-notes.md`
-- **Features included:** Native Windows desktop integrations
-- **Features intentionally excluded:** Cloud sync / online accounts
+  - Complete any remaining Windows-specific functionality required by the SRS, SDD, or other project documents
+  - Implement remaining required native Windows features, such as notifications, system tray, or launch on startup, only where they are part of the approved project requirements
+  - Finalize the application icon, display name, and branding
+  - Configure and generate a Release build
+  - Package FocusFlow as an MSIX installer
+  - Test the MSIX installer on Windows
+  - Prepare release documentation
+  - Prepare the GitHub repository and draft GitHub Release for FocusFlow v1.0
+- **Deliverables:**
+  - `FocusFlow.msix`
+  - `installation-instructions.md`
+  - `release-notes.md`
+- **Expected GitHub release structure:**
+  ```
+  GitHub repository
+  └── Releases
+      └── FocusFlow v1.0
+          ├── FocusFlow.msix
+          ├── installation-instructions.md
+          └── release-notes.md
+  ```
+- **Release rule:** Prepare the GitHub Release during Stage 20, but do not publish it. Finalize and publish it only after Stage 21 verification passes.
+- **Features included:** Required Windows integrations, release configuration, MSIX packaging, installer testing, branding, and release preparation
+- **Features intentionally excluded:** Publishing the GitHub Release before Stage 21 passes; new features not required by the project documents
 - **Testing required:**
-  - Jest tests where practical
-  - Manual Windows testing for native behavior
-  - Record manual test procedures in `testing-notes.md`
-- **Completion criteria:** Required Windows behaviors work; manual procedures documented; automated suites remain green
-- **Recommended Git commit message:** `Add Windows desktop integrations`
+  - Jest regression tests where practical
+  - Manual Windows testing for required native behavior
+  - Release-build verification
+  - MSIX installation testing
+  - Record actual procedures and outcomes in `testing-notes.md`
+- **Completion criteria:** Required Windows functionality works; Release build and MSIX are generated; installer is tested; release documents and the unpublished GitHub Release are prepared; automated suites remain green
+- **Recommended Git commit message:** `Prepare Windows release and MSIX package`
 - **Dependencies on earlier stages:** Stages 12–13 (timer), 18–19 (settings), prior storage stages
 
-### Stage 21 — Final integration tests
+### Stage 21 — Final Integration and Requirements Verification
 
 - **Status:** Not Started
-- **Objective:** Verify that all modules work together and satisfy the SRS and SDD.
+- **Objective:** Perform final end-to-end verification against the SRS, SDD, and all approved project requirements, then finalize the release.
 - **Main implementation work:**
-  - End-to-end automated and manual acceptance coverage
-  - Regression across every previous suite
-  - Performance spot-checks
-- **Expected files created or modified:**
-  - Integration test files as needed
-  - Final updates to `testing-notes.md` and `test-results.txt`
-- **Features included:** Full-product verification
-- **Features intentionally excluded:** New feature development beyond residual fixes
+  - Run the complete Jest suite
+  - Run final manual and end-to-end integration testing
+  - Verify every implemented feature against the SRS, SDD, and project requirements
+  - Verify the complete user workflow:
+    - First launch
+    - Productivity questionnaire / onboarding, if implemented
+    - Save settings
+    - Create a task
+    - Start a focus session
+    - Complete the task
+    - Confirm Goals update
+    - Confirm Statistics update
+    - Close and reopen FocusFlow
+    - Confirm all persisted data is restored
+  - Record and fix remaining integration defects
+  - Update testing documentation with final actual results
+  - Create a final requirements checklist confirming implementation status
+  - Finalize and publish the GitHub Release only after all required testing passes and no blocking defects remain
+- **Features included:** Final regression, end-to-end workflows, requirements verification, installation verification, defect resolution, and release publication
+- **Features intentionally excluded:** New feature development beyond fixes required to satisfy approved requirements
 - **Testing required:**
-  - End-to-end task lifecycle
-  - TaskManager plus repository
-  - Timer plus session storage
-  - Goal updates from completed tasks and sessions
-  - Statistics updates from stored data
+  - Complete Jest regression suite
+  - Full end-to-end user workflow
+  - SQLite persistence
+  - Timer behavior and long-break cycle
+  - Goal tracking
+  - Statistics updates
   - Settings persistence
-  - Restart persistence
-  - Trash and restore
-  - Subtask rules
-  - Offline operation
-  - Windows notifications
-  - Backup and restore
-  - Regression test of every previous suite
-  - Manual acceptance testing
-  - Performance checks: app startup, report loading, one-second timer updates
+  - Theme persistence
+  - Application close/reopen and restart behavior
+  - MSIX installation and clean installation
+  - Verification on a clean Windows installation where practical
+  - Requirement-by-requirement SRS/SDD checklist
 - **Completion criteria:**
   - All automated suites pass
-  - Required manual tests pass
-  - No critical unresolved defects
+  - Final manual and end-to-end tests pass
+  - Every approved requirement is implemented or explicitly resolved
+  - No blocking defects remain
+  - SQLite, timer, goals, statistics, settings, theme, restart, and MSIX workflows are verified
   - `testing-notes.md` contains final totals
-  - Software Test Document information is ready for the teammate writing the report
-- **Recommended Git commit message:** `Complete final integration testing`
+  - `test-results.txt` contains the final complete Jest output
+  - Final requirements checklist is complete
+  - GitHub Release is finalized and published
+- **Final project deliverables:**
+  - Source code
+  - GitHub repository
+  - GitHub Release
+  - `FocusFlow.msix`
+  - `installation-instructions.md`
+  - `release-notes.md`
+  - `testing-notes.md`
+  - `test-results.txt`
+  - Final updated `plan.md`
+- **Recommended Git commit message:** `Complete final verification and publish release`
 - **Dependencies on earlier stages:** Stages 1–20
 
 ---
@@ -657,8 +691,8 @@ npm run test:windows -- --verbose > test-results.txt 2>&1
 | 17. StatisticsEngine tests | `Add StatisticsEngine tests` |
 | 18. Settings | `Implement application settings` |
 | 19. Settings tests | `Add settings tests` |
-| 20. Windows features | `Add Windows desktop integrations` |
-| 21. Final integration tests | `Complete final integration testing` |
+| 20. Windows Features and Release Preparation | `Prepare Windows release and MSIX package` |
+| 21. Final Integration and Requirements Verification | `Complete final verification and publish release` |
 
 ---
 
