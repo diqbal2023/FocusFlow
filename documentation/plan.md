@@ -73,13 +73,14 @@ For every stage, follow this workflow:
 - [x] 17. StatisticsEngine tests
 - [x] 18. Settings
 - [x] 19. Settings tests
-- [ ] 20. Windows Features and Release Preparation — Next
-- [ ] 21. Final Integration and Requirements Verification
+- [x] 20. Windows Features and Release Preparation
+- [ ] 21. Final Integration and Requirements Verification — Next
 
 **Current status notes**
 
-- Stages 1–19 are complete.
-- Stage 20 (Windows features) is next.
+- Stages 1–20 are complete.
+- Stage 20 delivered the x64 Release build, a signed `FocusFlow.msix`, final branding (generated stopwatch/checkmark icon rendered into all package images and the executable ICO), release documentation, and a verified signed installation. The manifest minimum OS was corrected to Windows 10 build 18362 (D_STAGE20_03). The certificate-trust blocker (D_STAGE20_02) was resolved by administrator import of `FocusFlow.cer` into Local Machine Trusted People plus removal of the conflicting loose-layout registration with `-PreserveApplicationData`; the installed package launches Metro-free from `WindowsApps` and all local data persisted.
+- Stage 21 remains next and has not started. Final integration and GitHub Release publication are pending.
 - Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic and runtime completion events, Recently Deleted trash behavior, SQLite persistence, TaskRepository unit tests, TimerService, SessionManager completion events, GoalManager, and StatisticsEngine.
 - Tasks persist in a local SQLite database via TaskRepository / DatabaseService.
 - Focus Session UI is wired to SessionManager / TimerService with persisted configurable 25/5/15 defaults, long-break interval 4, and optional auto-start. Active/paused segment state is not persisted.
@@ -546,7 +547,7 @@ For every stage, follow this workflow:
 
 ### Stage 20 — Windows Features and Release Preparation
 
-- **Status:** Next
+- **Status:** Complete — x64 Release, signed MSIX, final branding, verified signed installation, and release documentation delivered; GitHub Release publication deferred to Stage 21 by design
 - **Objective:** Complete required Windows functionality and prepare the Windows release artifacts for final verification.
 - **Main implementation work:**
   - Complete any remaining Windows-specific functionality required by the SRS, SDD, or other project documents
@@ -585,7 +586,7 @@ For every stage, follow this workflow:
 
 ### Stage 21 — Final Integration and Requirements Verification
 
-- **Status:** Not Started
+- **Status:** Not Started — Next
 - **Objective:** Perform final end-to-end verification against the SRS, SDD, and all approved project requirements, then finalize the release.
 - **Main implementation work:**
   - Run the complete Jest suite

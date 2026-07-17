@@ -5,8 +5,8 @@ Working notes for the IEEE Software Test Document.
 
 | Field | Value |
 |---|---|
-| Last updated | 2026-07-17 (Stages 1–19 integrated; Settings) |
-| Current stage covered | Stages 1–19 (Settings implementation and tests) |
+| Last updated | 2026-07-17 (Stages 1–20 integrated; Windows release preparation complete) |
+| Current stage covered | Stages 1–20 (Stage 20 complete: signed MSIX installed and verified; final branding applied) |
 | Source test files | Existing Stage 1–17 suites plus `__tests__/Settings.test.ts` and `__tests__/SettingsScreen.test.tsx` |
 | Primary command | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
 | Alternate command | `npm test` |
@@ -42,7 +42,8 @@ Working notes for the IEEE Software Test Document.
 | 17 | StatisticsEngine direct unit tests (TC_STATS_01–12) | Complete / passing |
 | 18 | Settings model, SQLite repository, manager, theme, timer/goals integration, full form | Complete / passing |
 | 19 | Settings manager/repository/UI automation (TC_SETTINGS_*) | Complete / passing |
-| 20+ | Windows features and final integration | Not started |
+| 20 | Windows release preparation, x64 Release/MSIX/signing/docs/install attempt | In progress / signed installation blocked |
+| 21 | Final integration and publication | Not started |
 
 ---
 
@@ -51,6 +52,7 @@ Working notes for the IEEE Software Test Document.
 - **Test Scope**
   - Automated Jest UI and unit tests for FocusFlow React Native for Windows (TypeScript)
   - Covers prior scope plus settings defaults, strict validation, persistence abstraction, manager publication/application, reset safety, configurable timer transitions, zero goals, and SettingsScreen save behavior
+  - Stage 20 covers the Win32/full-trust RNW Composition C++ Release build, Desktop Bridge `.wapproj`, x64 MSIX generation/signing, embedded Hermes/SQLite inspection, data-preserving Release-layout launch/reopen, and release documentation
   - Does not cover as automated Jest: native turbo-sqlite engine I/O, visual layout, native notifications, export, authentication, cloud services
 
 - **Test Objectives**
@@ -67,6 +69,7 @@ Working notes for the IEEE Software Test Document.
   - Confirm StatisticsEngine filtering, totals, 40/40/20 score, category boundaries/messages, Monday weeks, 90-day history, no-data behavior, and Fair-or-better streaks
   - Confirm prior application suites remain green after Stages 16–17 work
   - Confirm settings persist before publication, merge partial stored JSON, reject corruption, apply to timer/goals/theme, and reset preferences without resetting productivity data
+  - Confirm the Stage 20 release process is reproducible, produces a signed x64 non-bundle MSIX, embeds the production bundle and native SQLite, preserves the existing Jest baseline, and records installation limitations without claiming unobserved behavior
 
 - **Test Items**
   - `App.tsx` + `Sidebar`
@@ -89,6 +92,9 @@ Working notes for the IEEE Software Test Document.
   - `src/testing/FakeDatabaseService.ts` (Stage 10 test double)
   - `src/models/AppSettings.ts`, `src/repositories/SettingsRepository.ts`, `src/managers/SettingsManager.ts`
   - `src/context/ThemeContext.tsx`, `src/screens/SettingsScreen.tsx`
+  - `windows/FocusFlow.Package/Package.appxmanifest`, `windows/FocusFlow/FocusFlow.rc`
+  - `scripts/package-windows.ps1`, `.gitignore`, `package.json`, `package-lock.json`
+  - `installation-instructions.md`, `release-notes.md`, `release-checklist.md`
 
 - **Features Tested**
   - Sidebar navigation / active item state
@@ -113,6 +119,7 @@ Working notes for the IEEE Software Test Document.
   - Configurable timer durations/long-break interval/auto-start while preserving running or paused segments
   - Goal targets including zero (immediately fulfilled), with actual completed work-event minutes
   - Persisted System/Light/Dark preference applied to app shell and shared components
+  - x64 Release compilation, RNW production bundle/Hermes compilation, MSIX packaging/signing, manifest identity/version/platform/capability metadata, release asset preparation, and Release-layout launch/reopen with LocalState preservation
 
 - **Features Not Yet Tested**
   - Native turbo-sqlite engine behavior inside Jest (suite uses fake/in-memory doubles)
@@ -122,12 +129,13 @@ Working notes for the IEEE Software Test Document.
   - Session persistence / SessionRepository
   - Completion history across app restarts (runtime events are intentionally in memory)
   - Durable statistics/session history
-  - Notifications, system tray, export, authentication, cloud services
+  - Native notification delivery, system tray, launch on startup, export, authentication, cloud services
   - Visual style details (colors, spacing, fonts) as automated assertions
   - Windows packaging/deploy as an automated test
   - Final integration behavior
   - Full manual settings save/restart persistence click path (repository restart semantics are automated)
   - Complete dark-theme migration of screen-local static StyleSheets
+  - Clean-machine / second-machine MSIX installation and a from-scratch uninstall/reinstall cycle (the signed install on the development host passed after administrator certificate trust)
 
 - **Test Environment**
   - OS: Windows 10/11 development machine
@@ -136,6 +144,8 @@ Working notes for the IEEE Software Test Document.
   - TypeScript `^5.8.3`
   - Node (project engine): `>= 22.11.0`
   - Jest config: `jest.config.js` → `jest.config.windows.js` (`@rnx-kit/jest-preset` windows) + `jest.setup.js`
+  - Stage 20 build host: Windows build 26200; Visual Studio 18 Community MSBuild 18.7.8; packaged MaxVersionTested/target SDK 22621 with NuGet build tools 26100; x64
+  - Project type: packaged full-trust Win32 RNW Composition C++ app, Windows App SDK 1.8, Desktop Bridge `.wapproj` (not UWP)
 
 - **Testing Tools**
   - Jest (`^29.6.3`) including fake timers / system time for timer suites
@@ -144,6 +154,7 @@ Working notes for the IEEE Software Test Document.
   - `InMemoryTaskRepository` for TaskManager / UI Jest isolation
   - `FakeDatabaseService` for repository SQL/parameter and mapping tests
   - `fireEvent` / `waitFor` / `findBy*` for async TasksScreen tests
+  - `vswhere`, MSBuild, NuGet restore, RNW bundler/Hermes compiler, Windows `signtool`, PowerShell AppX cmdlets, Authenticode/ZIP inspection, and Windows UI Automation
 
 - **Risks and Contingencies**
   - Jest does not exercise the native turbo-sqlite binary; Windows restart persistence still needs occasional manual spot-checks
@@ -160,11 +171,15 @@ Working notes for the IEEE Software Test Document.
   - Settings JSON is version-tolerant for missing fields; syntactically corrupt JSON fails explicitly instead of being silently overwritten
   - Theme coverage is coherent for the app shell/shared controls, but older screen-local static colors remain for later visual cleanup
   - If `npm test` preset breaks, use `npm run test:windows`
+  - React Native `0.86.0` and RNW `0.84.0` have an existing peer mismatch; Stage 20 intentionally retained the validated dependency set
+  - Final FocusFlow branding (stopwatch/checkmark tile) was generated from `assets/branding/focusflow-icon.png` via `scripts/generate-icons.ps1` into all package images and the multi-size `FocusFlow.ico`; template placeholders are replaced
+  - Self-signed MSIX deployment requires the public certificate in Local Machine Trusted People. CurrentUser Root/TrustedPeople was insufficient (`0x800B0109`); an elevated import of `FocusFlow.cer` into Local Machine Trusted People resolved deployment
+  - A previously registered unpackaged (loose-layout) registration of the same identity blocks `Add-AppxPackage` with `0x80073CFB`; remove it with `Remove-AppxPackage -PreserveApplicationData` before installing the signed MSIX. LocalState survived this transition on the test host
 
 - **Pass/Fail Criteria**
   - **Pass:** actual behavior matches expected behavior and the Jest assertion succeeds; suite exits 0
   - **Fail:** behavior differs from expected result, an assertion fails, or the test suite cannot execute
-  - **Stage gate (current):** Stages 1–19 green (`Failed Tests: 0`); Stage 20 is next
+  - **Stage gate (current):** 13 suites / 111 tests green; Release build, signed MSIX, administrator-assisted certificate trust, signed installation, Metro-free launch, and data persistence all pass — Stage 20 complete; Stage 21 final integration pending
 
 ---
 
@@ -402,6 +417,23 @@ npm run test:windows -- --verbose > test-results.txt 2>&1
   4. For a full manual release check, save values, close the process, reopen without redeploying, and confirm values reload.
 - **Post-Execution Actions:** Record only observed persistence. Reset changes preferences only; it must not reset tasks, progress, histories, sessions, or statistics.
 
+### TP-WINDOWS — Windows Release Preparation (Stage 20)
+- **Procedure ID:** TP-WINDOWS
+- **Description:** Build, package, sign, inspect, install where permitted, and launch the x64 Release without Metro
+- **Environment:** Win32/full-trust RNW 0.84 Composition C++, Windows App SDK 1.8, Desktop Bridge `.wapproj`, Windows build 26200, VS/MSBuild 18.7.8, x64
+- **Scope/files:** Manifest/RC branding metadata, npm version, lock restore, release script, ignore rules, installation/release/checklist documents; no Stage 20 application service code and therefore no `TC_WINDOWS_*` Jest cases
+- **Commands and steps:**
+  1. Run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-windows.ps1 -CreateDevelopmentCertificate`.
+  2. Script locates MSBuild with `vswhere`, restores `windows\FocusFlow.sln`, rebuilds `Release|x64` with `UseBundle=true`, `UseHermes=true`, `AppxBundle=Never`, `UapAppxPackageBuildMode=SideloadOnly`, and signs with a non-exportable CurrentUser certificate whose subject equals manifest publisher `CN=catsr`.
+  3. Inspect `FocusFlow.msix` signature, manifest, `Bundle/index.windows.bundle`, Hermes DLLs, and `ReactNativeTurboSqlite.dll`.
+  4. Back up package LocalState, close FocusFlow, and run `Add-AppxPackage -Path FocusFlow.msix -ForceApplicationShutdown -ForceUpdateFromAnyVersion`.
+  5. If certificate trust blocks deployment, retain the failure as evidence; do not remove user data. Register the generated Release layout only for a non-MSIX runtime check, launch through AppsFolder, inspect the accessibility tree, close/reopen, and confirm existing task data remains.
+  6. Run `npm run test:windows -- --verbose > test-results.txt 2>&1`, `npx tsc --noEmit`, `git diff --check`, and applicable diagnostics.
+- **Actual outcome:** Release/MSIX generation passed. MSBuild reported 17 warnings / 0 errors; warnings were known NU1701/native compiler/Hermes static-analysis warnings. The final MSIX was `FocusFlow.msix`, version `1.0.0.0`, x64, signed by `CN=catsr`, and contained the 1,238,264-byte bundle plus Hermes and native SQLite. After the D_STAGE20_03 fix, the package was rebuilt and re-signed with the same `CN=catsr` certificate; the packaged AppxManifest declares MinVersion 10.0.18362.0 / MaxVersionTested 10.0.22621.0 for both device families, and the signature verifies as Valid. The initial signed installation failed before deployment with `0x800B0109` because Local Machine certificate trust required administrator access; CurrentUser Root and TrustedPeople did not satisfy AppX deployment on this host. After the user installed `FocusFlow.cer` into Local Machine Trusted People with administrator approval, the signed MSIX installed successfully (D_STAGE20_02 resolved).
+- **Branding rebuild:** Final FocusFlow artwork (indigo stopwatch/checkmark tile) was produced as `assets/branding/focusflow-icon.png` and rendered by `scripts/generate-icons.ps1` into all seven package images (square tiles, 24px unplated taskbar asset, StoreLogo, wide tile, splash screen) plus a multi-size PNG-compressed `FocusFlow.ico`/`small.ico` (256/64/48/32/24/16). The package was rebuilt/re-signed with the same trusted `CN=catsr` certificate: 17 warnings / 0 errors; new `FocusFlow.msix` SHA-256 `37F8DC8F4D07B7FB4C552E18CB96E2E31CA9D9E587C733AD08E27D4AC412BC7E`.
+- **Signed installation (final):** A previously registered unpackaged loose-layout registration of the same identity blocked reinstall with `0x80073CFB`; it was removed with `Remove-AppxPackage -PreserveApplicationData` and the signed MSIX then installed to `C:\Program Files\WindowsApps\FocusFlow_1.0.0.0_x64__wk8nzwejgnza6` with `SignatureKind: Developer`.
+- **Post-execution:** LocalState was backed up before each install operation and preserved. The installed app launched from its package identity without Metro (port 8081 inactive), rendered the full accessibility tree (Tasks/Focus Session/Statistics/Goals/Settings), and retained all pre-existing tasks (`Homework`, `Study React Native`, `Clean Room`, `Math Homework`) after the identity transition and again after a full close/reopen cycle. Uninstall/reinstall of the trusted signed package was exercised implicitly by the remove/replace transition; a from-scratch clean-machine install remains a Stage 21 item.
+
 ---
 
 ## 4. TEST RESULTS INFORMATION
@@ -428,6 +460,12 @@ Latest full automated run (`test-results.txt`): **13 suites / 111 tests passed /
 | TC_SETTINGS_01–09 | Settings model/manager/integration | Pass | Defaults, validation, ordering, reset, timer, goals | N/A |
 | TC_SETTINGS_REPO_01–02 | SettingsRepository | Pass | Partial merge, singleton upsert/reset, corrupt JSON | N/A |
 | TC_SETTINGS_UI_01–03 | SettingsScreen | Pass | Invalid/valid save and accessible sections | N/A |
+| TP-WINDOWS build/package | x64 Release + signed MSIX | Pass | 17 warnings / 0 errors; bundle/Hermes/SQLite present | D_STAGE20_01 fixed |
+| TP-WINDOWS signed install | `Add-AppxPackage` | Pass | Installed to `WindowsApps` after admin Local Machine Trusted People trust and removal of the loose-layout registration | D_STAGE20_02 fixed |
+| TP-WINDOWS Release runtime | Loose Release layout, launch/reopen | Pass (limited) | Responsive FocusFlow window; no Metro; LocalState task retained | N/A |
+| TP-WINDOWS manifest minimum OS | Packaged AppxManifest MinVersion | Pass | Rebuilt signed MSIX declares MinVersion 10.0.18362.0 for both device families | D_STAGE20_03 fixed |
+| TP-WINDOWS installed runtime | Installed signed package, launch/close/reopen | Pass | Metro-free launch from package identity; all pre-existing tasks persisted across identity transition and restart | N/A |
+| TP-WINDOWS branding | Final icon/tile/splash assets in rebuilt MSIX | Pass | Generated stopwatch/checkmark artwork replaced all template placeholders; multi-size ICO wired to the executable | N/A |
 
 ---
 
@@ -436,7 +474,7 @@ Latest full automated run (`test-results.txt`): **13 suites / 111 tests passed /
 Latest automated product test run: **0 failed** (**13 suites / 111 tests passed**).
 Stages 1–19 complete. Product defects from Stages 9–10 are fixed (DEF-005–008). DEF-004 remains an open deploy workaround when the app locks DLLs.
 
-One pre-existing regression was discovered before Statistics work and fixed as D_STAGE16_01. Settings implementation checks found and fixed D_STAGE18_01–02.
+One pre-existing regression was discovered before Statistics work and fixed as D_STAGE16_01. Settings implementation checks found and fixed D_STAGE18_01–02. Stage 20 found one packaging-script defect, one environment/deployment blocker, and one manifest metadata defect: all three are now resolved. D_STAGE20_02 was fixed by administrator installation of `FocusFlow.cer` into Local Machine Trusted People followed by removal of the conflicting loose-layout registration (`0x80073CFB`) with `-PreserveApplicationData`; the signed MSIX then installed and launched with all data intact.
 
 Historical defects found during setup / earlier automated testing (and fixed) are logged below.
 
@@ -455,6 +493,9 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | D_STAGE16_01 | TC_GOAL_10 could fail after midnight because `GoalManager.setTargets()` called `getProgress()` with the machine's real current date, rolling the controlled test manager's baseline before `synchronizeProgress(now)`. | Major | 1. Construct GoalManager with a controlled prior date 2. Call `setTargets()` after the real calendar date changes 3. Synchronize with the controlled date 4. Observe progress baseline incorrectly reset | Fixed | GoalManager now preserves its last controlled reference date for target changes and accepts an optional `now`; all existing TC_GOAL IDs remain unchanged and green. |
 | D_STAGE18_01 | SettingsScreen’s optional injected manager prop made the component function incompatible with the app shell’s zero-argument screen component map during TypeScript verification. | Minor | 1. Add destructured SettingsScreen props 2. Run `npx tsc --noEmit` 3. Observe TS2322 in `App.tsx` | Fixed | Give the entire props argument a default value; TypeScript and all tests pass. |
 | D_STAGE18_02 | Shared button pressed and disabled styles could override active dark-theme tokens with module-level light colors. | Minor | 1. Select Dark theme 2. Press or disable a shared button 3. Inspect the resolved style colors | Fixed | Pressed, disabled, border, and label colors now derive from the active `ThemeContext` tokens. |
+| D_STAGE20_01 | Direct `.wapproj` packaging lost required solution context and blocked the native SQLite/RNW build. | Major | Run the initial package script against `FocusFlow.Package.wapproj`; observe fallback source work and then `SolutionPath is not defined`. | Fixed | Build/package `FocusFlow.sln` and pass the Windows `SolutionDir`. |
+| D_STAGE20_02 | Signed MSIX deployment fails with `0x800B0109` because CurrentUser certificate trust is insufficient on this host. | Major / Blocker | Trust the public certificate under CurrentUser Root/TrustedPeople; run `Add-AppxPackage FocusFlow.msix`. | Fixed | Administrator imported `FocusFlow.cer` into Local Machine Trusted People; the conflicting unpackaged loose-layout registration (`0x80073CFB`) was removed with `Remove-AppxPackage -PreserveApplicationData`; the signed MSIX then installed to `WindowsApps` and launched with all LocalState data preserved. |
+| D_STAGE20_03 | Package manifest advertised Windows 10 minimum build 17763, below the RNW New Architecture native minimum of build 18362, so the package could be offered to OS versions the app cannot support. | Major | 1. Inspect `Package.appxmanifest` `TargetDeviceFamily` MinVersion (10.0.17763.0) 2. Compare with RNW New Architecture native minimum (10.0.18362.0) | Fixed | Both Windows.Universal and Windows.Desktop MinVersion raised to `10.0.18362.0` in `Package.appxmanifest`, and `TargetPlatformMinVersion=10.0.18362.0` set in `FocusFlow.Package.wapproj` (the generated AppxManifest otherwise reverted to the 17763 SDK default); installation/release docs updated; signed x64 MSIX regenerated and re-verified. |
 
 ### Recent defect detail
 
@@ -463,6 +504,9 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | D_STAGE16_01 | Major | Controlled GoalManager progress could reset after the machine crossed into a new calendar day. | Construct with a controlled date; call `setTargets()` after the real date changes; synchronize using the controlled date. | Target editing preserves the manager's controlled period and progress. | The implicit real date rolled the baseline, producing zero progress in TC_GOAL_10. | `setTargets()` called `getProgress()` without carrying the manager's reference date. | Preserve the last controlled reference date and accept an optional `now` in `setTargets()`. | Fixed | Stage 16 | Existing TC_GOAL_10 now passes deterministically. |
 | D_STAGE18_01 | Minor | SettingsScreen component type did not fit the zero-argument navigation map. | Add destructured injected-manager props; run `npx tsc --noEmit`. | SettingsScreen remains injectable and assignable to `() => JSX.Element`. | TS2322 in `App.tsx`. | The props object itself was required even though its property was optional. | Default the entire props argument to `{}`. | Fixed | Stage 18 | TypeScript passes; all TC_NAV and TC_SETTINGS_UI cases pass. |
 | D_STAGE18_02 | Minor | Shared button interaction states used light tokens while Dark theme was active. | Select Dark theme; inspect a pressed or disabled `AppButton`. | Every button state uses the resolved active theme. | Static pressed/disabled styles followed dynamic styles and overrode them. | Module-level light color styles had higher array precedence for interaction states. | Compute interaction colors from `useTheme()` and apply them dynamically. | Fixed | Stage 18 | Shared component and full Jest suites pass; live Dark selection remains coherent. |
+| D_STAGE20_01 | Major | Packaging outside solution context failed before an MSIX could be produced. | Invoke the `.wapproj` directly from the release script with Release/x64 properties. | Restore/build uses RNW NuGet mode and includes SQLite. | RNW missed solution-level experimental props; retry failed because `SolutionPath` was undefined. | The direct project invocation did not retain context required by RNW/native module targets. | Build and package `FocusFlow.sln`; explicitly pass Windows `SolutionDir`; retain supported MSBuild properties. | Fixed | Stage 20 | Final x64 Release/MSIX build succeeded with 0 errors; supported restore removed stale `reactnativefs`. |
+| D_STAGE20_02 | Major / Blocker | A cryptographically signed MSIX could not be installed in the non-administrative test environment. | Create a non-exportable `CN=catsr` cert; sign; trust its public cert in CurrentUser Root/TrustedPeople; run `Add-AppxPackage`. | Package upgrades the existing same-family app while preserving LocalState. | Deployment stopped before install with `0x800B0109`; after trust was fixed, reinstall was blocked by `0x80073CFB` because an unpackaged loose-layout registration of the same identity existed. | AppX requires local-machine trust for this self-signed package, and a development loose-layout registration cannot be replaced by a packaged install. | Administrator imported `FocusFlow.cer` into Local Machine Trusted People; LocalState was backed up; the loose-layout registration was removed with `Remove-AppxPackage -PreserveApplicationData`; the signed MSIX installed cleanly. | Fixed | Stage 20 | Installed package launched Metro-free from `WindowsApps`; all pre-existing tasks persisted across the identity transition and a close/reopen cycle. |
+| D_STAGE20_03 | Major | Manifest advertised a lower Windows minimum (build 17763) than the native app requirement (RNW New Architecture requires build 18362). | Inspect `Package.appxmanifest` `TargetDeviceFamily` entries; compare `MinVersion` 10.0.17763.0 against the RNW New Architecture minimum 10.0.18362.0. | Manifest MinVersion is at least the actual native minimum so unsupported OS builds cannot install the package. | Both device families declared MinVersion 10.0.17763.0. | The RNW template default was retained during earlier manifest review; the New Architecture native minimum was not cross-checked, and the WAP build regenerates the packaged manifest from `TargetPlatformMinVersion`, which still defaulted to 17763. | Raise Windows.Universal and Windows.Desktop MinVersion to `10.0.18362.0`; set `TargetPlatformMinVersion=10.0.18362.0` in `FocusFlow.Package.wapproj`; align installation and release documentation; rebuild and re-sign the x64 MSIX with the existing `CN=catsr` certificate. | Fixed | Stage 20 | Rebuilt packaged AppxManifest verified at MinVersion 10.0.18362.0 for both device families; signature Valid (`CN=catsr`); Jest 13 suites / 111 tests and TypeScript remain green. |
 
 ### Defect field notes (for STD authors)
 
@@ -485,7 +529,7 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Failed | 0 |
 | Pass Percentage | 100% |
 | Snapshots | 0 |
-| Overall System Status (tested scope) | Stages 1–19 green; Settings covered; Stage 20 next |
+| Overall System Status (tested scope) | 13/13 suites and 111/111 tests green; Stage 20 Release/MSIX, signed install, Metro-free launch, and persistence pass |
 
 ### Suite map
 
@@ -505,7 +549,7 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Settings stages 18–19 | `__tests__/Settings.test.ts` | TC_SETTINGS_01–09, TC_SETTINGS_REPO_01–02 |
 | SettingsScreen | `__tests__/SettingsScreen.test.tsx` | TC_SETTINGS_UI_01–03 |
 
-### Implementation milestones (Stages 1–17)
+### Implementation milestones (Stages 1–20)
 
 | Sprint | Stages | Delivered | Key test IDs |
 |---|---|---|---|
@@ -517,6 +561,7 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Goals | 14–15 | Goal model, GoalManager, redesigned GoalsScreen, direct tests | TC_GOAL_* |
 | Statistics | 16–17 | Runtime completion events, StatisticsEngine, dashboard, custom 90-day grid | TC_TASK_MGR_11, TC_SESSION_10–11, TC_STATS_* |
 | Settings | 18–19 | Typed settings, SQLite repository, manager, theme, full form, timer/goals integration | TC_SETTINGS_*, TC_SETTINGS_REPO_*, TC_SETTINGS_UI_* |
+| Windows release preparation | 20 | Manifest/version/capability review, executable icon wiring, x64 Release/Hermes, signed MSIX, release docs, install attempt | TP-WINDOWS (no new service/Jest cases) |
 
 ### Key implementation notes (integrated)
 
@@ -563,7 +608,17 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 - Running or paused segments retain their configured duration. New values apply to an idle segment or the next configured segment. Completion events retain actual segment durations; configured auto-start and long-break interval drive transitions.
 - Goal focus minutes sum actual completed work-event durations. Settings and Goals screen target edits persist without resetting progress/baselines/history.
 - Theme System/Light/Dark is persisted and resolved through Appearance/useColorScheme. The app shell, sidebar, and shared cards/inputs/buttons/headers use theme tokens. Older screens still contain static module StyleSheets, so full screen-level dark-theme visual cleanup is explicitly deferred.
-- Notification is a preference only. No Stage 20 delivery, tray, startup, MSIX, export, backup, auth, or cloud behavior was added. Onboarding remains deferred.
+- Notification is a preference only. Stage 20 did not add native delivery because no safe, already-supported RNW packaged notification path was available without a major native rewrite. Tray/startup were not approved requirements. No export, backup, auth, cloud, or onboarding behavior was added.
+
+**Windows release preparation (Stage 20)**
+- Product version is `1.0.0` / package `1.0.0.0`; display name is FocusFlow; description identifies offline task/focus/goal/statistics behavior.
+- Manifest remains full-trust Desktop Bridge with `runFullTrust`; unnecessary `internetClient` was removed. Windows 10 build 18362 is minimum (raised from 17763 per D_STAGE20_03 to match the RNW New Architecture native requirement) and 22621 is MaxVersionTested in the built manifest.
+- Final branding is applied: `assets/branding/focusflow-icon.png` (indigo stopwatch/checkmark tile) is rendered by `scripts/generate-icons.ps1` into all seven package images (square tiles, taskbar/unplated, StoreLogo, wide tile, splash) and a multi-size `FocusFlow.ico`/`small.ico` wired to the executable resource. Template placeholders are fully replaced.
+- `scripts/package-windows.ps1` discovers MSBuild via `vswhere`, restores/builds the solution as Release/x64, forces bundle/Hermes, creates a non-bundle sideload MSIX, accepts `FOCUSFLOW_CERT_THUMBPRINT`/parameter input, or creates a non-exportable local certificate. It exports only the public `FocusFlow.cer`.
+- Supported restore removed stale `reactnativefs` from `windows/FocusFlow/packages.lock.json`; `react-native-turbo-sqlite` remains autolinked.
+- Final build output was `FocusFlow.Package_1.0.0.0_x64.msix`, copied to ignored release asset `artifacts/windows/FocusFlow-v1.0.0-x64/FocusFlow.msix`. Prepared attachments are `FocusFlow.msix`, `FocusFlow.cer`, `FocusFlow-dependencies-x64.zip`, `installation-instructions.md`, and `release-notes.md`.
+- Build warnings: two NuGet compatibility warnings, generated/native unused-parameter warnings, and Hermes undeclared-global static warnings; 0 errors. No Metro is required.
+- Stage 21 integration and GitHub publication are explicitly pending; no GitHub Release was created.
 
 ### Manual verification summary
 
@@ -575,6 +630,11 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Goals UI (Stages 14–15) | `npx react-native run-windows` | Build, deploy, and app start — Pass after closing the existing FocusFlow process that held `ReactNativeTurboSqlite.dll` (known DEF-004 pattern). Interactive visual/click verification was not available in this agent environment; daily/weekly calculations, completion messages, percentages, and reset semantics are covered by TC_GOAL_01–10. |
 | Statistics UI (Stages 16–17) | `npx react-native run-windows` + Windows UI Automation | Pass — build/deploy/start exited 0; Statistics navigation opened the live dashboard; Daily/Weekly controls, score/category/message, streak, 90-day grid, recent-history empty state, and undated persisted-task note were present. Weekly toggle displayed its summary and no-data state without crashing. Creating a completion through UI Automation was not reliable, so event reflection remains verified by TC_TASK_MGR_11, TC_SESSION_10–11, and TC_STATS_12 rather than claimed as a manual pass. |
 | Settings UI (Stages 18–19) | `npx react-native run-windows` + Windows UI Automation | Pass — build/deploy/start exited 0; the live accessibility tree exposed Timer, Goals, Appearance, General, all numeric inputs/toggles/theme options, Save, and Restore Defaults. UI Automation changed work duration 25→42 and theme System→Dark, then displayed “Settings saved.”; FocusFlow was terminated and relaunched through its installed package identity without redeploying, and Settings reloaded 42/Dark. The original 25/System values were saved afterward. |
+| Stage 20 x64 Release/MSIX | `scripts/package-windows.ps1`, MSBuild, ZIP/AuthentiCode inspection | Pass — x64 Release and signed non-bundle MSIX generated; 17 warnings / 0 errors; 1,238,264-byte app bundle, Hermes, and native SQLite present. |
+| Stage 20 signed installation | `Add-AppxPackage` after admin Local Machine Trusted People trust | Pass — the first attempt was blocked (`0x800B0109`) until the administrator trusted `FocusFlow.cer`; a second block (`0x80073CFB`, existing unpackaged registration) was cleared with `Remove-AppxPackage -PreserveApplicationData`; the signed MSIX then installed to `C:\Program Files\WindowsApps` with `SignatureKind: Developer`. LocalState was backed up first and preserved throughout. |
+| Stage 20 Release runtime | Data-preserving remove/register of generated loose Release layout + AppsFolder launch + UI Automation | Limited pass — package location changed to `bin/x64/Release`; responsive FocusFlow window opened without Metro; Tasks and Settings trees rendered; task `Homework` survived close/reopen; settings 25/5/15/4 were readable. Scripted settings mutation was unreliable and is not claimed. |
+| Stage 20 installed runtime | Installed signed package launch via AppsFolder + UI Automation + close/reopen | Pass — `FocusFlow.exe` ran from `WindowsApps` with no Metro (port 8081 inactive); full accessibility tree exposed all five sections; pre-existing tasks (`Homework`, `Study React Native`, `Clean Room`, `Math Homework`) persisted across the identity transition and a full close/reopen cycle. |
+| Stage 20 final branding | Generated artwork rendered into package images/ICO; rebuilt MSIX inspected | Pass — stopwatch/checkmark tile replaced all template placeholders; rebuilt signed MSIX SHA-256 `37F8DC8F4D07B7FB4C552E18CB96E2E31CA9D9E587C733AD08E27D4AC412BC7E`. |
 
 Deploy note: close running FocusFlow before redeploy if DLL file lock occurs (DEF-004).
 Stage 14–15 launch note: the first overlapping native compile reported C1041 on `vc145.pdb`; a single retry built successfully. Deployment then encountered the known DLL lock, `tasklist /m ReactNativeTurboSqlite.dll` identified `FocusFlow.exe`, and closing only that process allowed the final build/deploy/start command to exit 0.
@@ -587,4 +647,5 @@ Stage 14–15 launch note: the first overlapping native compile reported C1041 o
 - Schema migrations / corrupt DB recovery / large datasets
 - Final integration
 - Full screen-level dark-theme visual cleanup
+- Clean-machine / second-machine MSIX installation test
 

@@ -76,6 +76,25 @@ windows/**/Generated Files/
 windows/*.binlog
 windows/*.err
 windows/*.wrn
+windows/**/AppPackages/
+windows/**/BundleArtifacts/
+windows/**/*.appx
+windows/**/*.appxbundle
+windows/**/*.msix
+windows/**/*.msixbundle
+artifacts/
+
+# Signing material and local release credentials
+*.cer
+*.pfx
+*.pvk
+*.snk
+*.key
+*.pem
+*.password
+*.secrets
+*.thumbprint
+.env.release
 
 # Yarn
 .yarn/*
