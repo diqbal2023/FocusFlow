@@ -69,24 +69,26 @@ For every stage, follow this workflow:
 - [x] 13. Timer tests with fake timers
 - [x] 14. Goals
 - [x] 15. GoalManager tests
-- [ ] 16. Statistics — Next
-- [ ] 17. StatisticsEngine tests
-- [ ] 18. Settings
+- [x] 16. Statistics
+- [x] 17. StatisticsEngine tests
+- [ ] 18. Settings — Next
 - [ ] 19. Settings tests
 - [ ] 20. Windows features
 - [ ] 21. Final integration tests
 
 **Current status notes**
 
-- Stages 1–15 are complete.
-- Stage 16 (Statistics) is next.
-- Stages 16–21 have not started.
-- Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic, Recently Deleted trash behavior, SQLite persistence, TaskRepository unit tests, TimerService, SessionManager, and GoalManager.
+- Stages 1–17 are complete.
+- Stage 18 (Settings) is next.
+- Stages 18–21 have not started.
+- Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic and runtime completion events, Recently Deleted trash behavior, SQLite persistence, TaskRepository unit tests, TimerService, SessionManager completion events, GoalManager, and StatisticsEngine.
 - Tasks persist in a local SQLite database via TaskRepository / DatabaseService.
 - Focus Session UI is wired to SessionManager / TimerService (timestamp-based Pomodoro: 25/5/15 min, long break after 4 completed work sessions). Session state is not persisted yet (no SessionRepository).
 - Skipped work sessions do not count toward completed-work or long-break cycle progress (documented in SessionManager and UI).
-- Goals use real stored completed-task totals and current-runtime SessionManager totals. Calendar-accurate daily/weekly history is unavailable until task completion timestamps and session persistence exist; goal target persistence is deferred to Settings.
-- Statistics, settings persistence, and Windows-specific integrations are not implemented yet.
+- Goals use real stored completed-task totals and current-runtime SessionManager totals; goal target persistence remains deferred to Settings.
+- Statistics uses typed runtime-only completion histories from TaskManager and SessionManager. Existing persisted Completed tasks are exposed only as an undated snapshot and are never assigned fabricated historical dates.
+- StatisticsEngine provides normalized selected-day summaries, Monday–Sunday weeks, the capped 40/40/20 score, exact result boundaries/messages, Fair-or-better streaks, and ordered zero-filled history up to 90 days.
+- Statistics history is not persisted across restarts; no SessionRepository/schema change was introduced. Settings persistence and Windows-specific integrations are not implemented yet.
 
 ---
 
@@ -446,7 +448,7 @@ For every stage, follow this workflow:
 
 ### Stage 16 — Statistics
 
-- **Status:** Next
+- **Status:** Complete
 - **Objective:** Build the productivity statistics dashboard.
 - **Main implementation work:**
   - Completed tasks and sessions
@@ -454,19 +456,24 @@ For every stage, follow this workflow:
   - Productivity score and result
   - Streaks
   - Daily and weekly summaries
-  - 90-day history placeholder or heatmap
+  - Custom package-free 90-day activity grid
+  - Typed runtime task/session completion event histories
 - **Expected files created or modified:**
-  - `src/screens/StatisticsScreen.tsx` and supporting components/models
-- **Features included:** Statistics dashboard presentation
+  - `src/screens/StatisticsScreen.tsx`
+  - `src/models/DailyProductivity.ts`
+  - `src/managers/StatisticsEngine.ts`
+  - `src/managers/TaskManager.ts`
+  - `src/managers/SessionManager.ts`
+- **Features included:** Daily/weekly dashboard, date controls, score/result, task/session/focus/break metrics, streak, recent history, 90-day grid, loading/empty/error states, and runtime completion event adapters
 - **Features intentionally excluded:** Full StatisticsEngine unit suite (Stage 17)
-- **Testing required:** Manual dashboard checks; calculation tests in Stage 17
-- **Completion criteria:** Statistics screen shows core productivity metrics from available data
+- **Testing required:** Windows launch check completed; calculation tests completed in Stage 17
+- **Completion criteria:** Complete — Statistics screen shows core productivity metrics from truthful runtime-dated sources and separately labels the undated persisted completed-task snapshot
 - **Recommended Git commit message:** `Implement productivity statistics dashboard`
 - **Dependencies on earlier stages:** Task/session data from Stages 7–13; goals optional
 
 ### Stage 17 — StatisticsEngine tests
 
-- **Status:** Not Started
+- **Status:** Complete
 - **Objective:** Test productivity calculations independently.
 - **Main implementation work:**
   - `StatisticsEngine`
@@ -474,7 +481,7 @@ For every stage, follow this workflow:
   - 90-day history data preparation
   - Result categories: Excellent, Good, Fair, Needs Improvement
 - **Expected files created or modified:**
-  - `src/engines/StatisticsEngine.ts` (or equivalent path)
+  - `src/managers/StatisticsEngine.ts`
   - `__tests__/StatisticsEngine.test.ts`
 - **Features included:** Pure statistics calculations
 - **Features intentionally excluded:** Chart library styling / visual regression
@@ -482,9 +489,13 @@ For every stage, follow this workflow:
   - Totals
   - Score boundaries
   - Result categories
-  - Empty data
-  - Streak behavior
-- **Completion criteria:** StatisticsEngine tests pass; prior suites remain green
+  - Empty data and division-by-zero safety
+  - Monday week totals/average/productive/best day
+  - Fair-or-better streak behavior, including inactive today and future/no-data exclusion
+  - Ordered, zero-filled history capped at 90 days
+  - Runtime manager refresh and undated snapshot separation
+  - Test IDs: `TC_STATS_01` through `TC_STATS_12`
+- **Completion criteria:** Complete — 11 suites / 97 tests pass; `npx tsc --noEmit` passes; Windows build/deploy/start exits 0
 - **Recommended Git commit message:** `Add StatisticsEngine tests`
 - **Dependencies on earlier stages:** Stage 16
 

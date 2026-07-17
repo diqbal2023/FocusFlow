@@ -41,6 +41,9 @@ describe('FocusFlow navigation shell', () => {
     await renderAppOnTasks();
 
     fireEvent.press(screen.getByTestId('nav-statistics'));
+    await act(async () => {
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
+    });
 
     expect(
       screen.getByText('Review your productivity patterns.'),

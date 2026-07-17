@@ -236,4 +236,41 @@ describe('SessionManager', () => {
     expect(manager.getWorkSessionsTowardLongBreak()).toBe(0);
     expect(manager.getSnapshot(now).durationMs).toBe(POMODORO_DURATIONS_MS.work);
   });
+
+  test('TC_SESSION_10 records natural work and break completions with exact durations', () => {
+    const manager = createManager();
+    let now = Date.now();
+
+    now = completeCurrent(manager, now);
+    now = completeCurrent(manager, now);
+
+    expect(manager.getCompletionHistory()).toEqual([
+      {
+        mode: 'work',
+        completedAt: new Date(
+          Date.now() + POMODORO_DURATIONS_MS.work,
+        ).toISOString(),
+        durationMs: POMODORO_DURATIONS_MS.work,
+      },
+      {
+        mode: 'shortBreak',
+        completedAt: new Date(now).toISOString(),
+        durationMs: POMODORO_DURATIONS_MS.shortBreak,
+      },
+    ]);
+  });
+
+  test('TC_SESSION_11 does not record skip or reset as a completion', () => {
+    const manager = createManager();
+    const now = Date.now();
+
+    manager.start(now);
+    manager.tick(now + 10_000);
+    manager.skip(now + 10_000);
+    manager.start(now + 10_001);
+    manager.tick(now + 20_000);
+    manager.reset(now + 20_000);
+
+    expect(manager.getCompletionHistory()).toEqual([]);
+  });
 });

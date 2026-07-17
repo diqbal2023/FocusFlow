@@ -115,8 +115,10 @@ export class GoalManager {
   };
   private dailyPeriodKey: string;
   private weeklyPeriodKey: string;
+  private referenceDate: Date;
 
   constructor(now: Date = new Date()) {
+    this.referenceDate = new Date(now);
     this.dailyPeriodKey = getDailyPeriodKey(now);
     this.weeklyPeriodKey = getWeeklyPeriodKey(now);
   }
@@ -127,14 +129,20 @@ export class GoalManager {
     );
   }
 
-  setTargets(period: GoalPeriod, targets: GoalTargets): GoalsProgress {
+  setTargets(
+    period: GoalPeriod,
+    targets: GoalTargets,
+    now?: Date,
+  ): GoalsProgress {
     const normalized = normalizeTargets(targets);
     if (period === 'daily') {
       this.dailyTargets = normalized;
     } else {
       this.weeklyTargets = normalized;
     }
-    return this.getProgress();
+    // Target edits must not silently roll a deterministically constructed
+    // manager to the machine's real date (D_STAGE16_01).
+    return this.getProgress(now ?? this.referenceDate);
   }
 
   /**
@@ -206,6 +214,7 @@ export class GoalManager {
   }
 
   private rollPeriods(now: Date, current: GoalProgress): void {
+    this.referenceDate = new Date(now);
     const dailyKey = getDailyPeriodKey(now);
     const weeklyKey = getWeeklyPeriodKey(now);
 

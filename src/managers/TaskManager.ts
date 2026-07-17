@@ -45,6 +45,11 @@ export type TaskWorkspace = {
   deletedTasks: DeletedTask[];
 };
 
+export type TaskCompletionEvent = {
+  taskId: string;
+  completedAt: string;
+};
+
 /** Soft-deleted tasks are kept this many days before permanent removal. */
 export const DELETED_TASK_RETENTION_DAYS = 30;
 
@@ -135,6 +140,7 @@ function createDefaultRepository(): ITaskRepository {
  */
 export class TaskManager {
   private initialized = false;
+  private completionHistory: TaskCompletionEvent[] = [];
 
   constructor(private repository: ITaskRepository = createDefaultRepository()) {}
 
@@ -144,6 +150,7 @@ export class TaskManager {
   replaceRepositoryForTests(repository: ITaskRepository): void {
     this.repository = repository;
     this.initialized = false;
+    this.resetCompletionHistoryForTests();
   }
 
   /**
@@ -392,7 +399,18 @@ export class TaskManager {
     return Math.ceil(remainingMs / msInDays(1));
   }
 
-  async advanceTaskStatus(taskId: string): Promise<Task[]> {
+  getCompletionHistory(): TaskCompletionEvent[] {
+    return this.completionHistory.map(event => ({...event}));
+  }
+
+  resetCompletionHistoryForTests(): void {
+    this.completionHistory = [];
+  }
+
+  async advanceTaskStatus(
+    taskId: string,
+    now: Date = new Date(),
+  ): Promise<Task[]> {
     await this.ensureInitialized();
     const task = await this.repository.getTaskById(taskId);
     if (!task) {
@@ -408,13 +426,22 @@ export class TaskManager {
 
     if (nextStatus !== task.status) {
       await this.repository.updateTask({...task, status: nextStatus});
+      if (task.status === 'In Progress' && nextStatus === 'Completed') {
+        this.completionHistory.push({
+          taskId: task.id,
+          completedAt: now.toISOString(),
+        });
+      }
     }
 
     return this.repository.getAllTasks();
   }
 
-  async completeTask(taskId: string): Promise<Task[]> {
-    return this.advanceTaskStatus(taskId);
+  async completeTask(
+    taskId: string,
+    now: Date = new Date(),
+  ): Promise<Task[]> {
+    return this.advanceTaskStatus(taskId, now);
   }
 }
 

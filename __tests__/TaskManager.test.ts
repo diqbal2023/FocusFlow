@@ -303,4 +303,22 @@ describe('TaskManager unit tests', () => {
       true,
     );
   });
+
+  it('TC_TASK_MGR_11 records an In Progress completion once with its real date', async () => {
+    const manager = await createManager([
+      makeTask({id: 'history-1', status: 'In Progress'}),
+    ]);
+    const completedAt = new Date('2026-07-16T14:30:00.000Z');
+
+    await manager.completeTask('history-1', completedAt);
+    await manager.completeTask('history-1', new Date('2026-07-17T14:30:00.000Z'));
+
+    const history = manager.getCompletionHistory();
+    expect(history).toEqual([
+      {taskId: 'history-1', completedAt: completedAt.toISOString()},
+    ]);
+
+    history[0].taskId = 'changed-copy';
+    expect(manager.getCompletionHistory()[0].taskId).toBe('history-1');
+  });
 });

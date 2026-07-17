@@ -5,12 +5,12 @@ Working notes for the IEEE Software Test Document.
 
 | Field | Value |
 |---|---|
-| Last updated | 2026-07-16 (Stages 1–15 integrated; Goals + GoalManager) |
-| Current stage covered | Stages 1–15 (Goals UI, GoalManager, direct goal tests) |
-| Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx`, `__tests__/TaskValidation.test.ts`, `__tests__/TaskManager.test.ts`, `__tests__/TaskManager.trash.test.ts`, `__tests__/TaskRepository.test.ts`, `__tests__/TimerService.test.ts`, `__tests__/SessionManager.test.ts`, `__tests__/GoalManager.test.ts` |
+| Last updated | 2026-07-17 (Stages 1–17 integrated; Statistics + StatisticsEngine) |
+| Current stage covered | Stages 1–17 (Statistics dashboard, runtime completion history, StatisticsEngine) |
+| Source test files | `__tests__/App.test.tsx`, `__tests__/SharedComponents.test.tsx`, `__tests__/TasksScreen.test.tsx`, `__tests__/TaskValidation.test.ts`, `__tests__/TaskManager.test.ts`, `__tests__/TaskManager.trash.test.ts`, `__tests__/TaskRepository.test.ts`, `__tests__/TimerService.test.ts`, `__tests__/SessionManager.test.ts`, `__tests__/GoalManager.test.ts`, `__tests__/StatisticsEngine.test.ts` |
 | Primary command | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
 | Alternate command | `npm test` |
-| Latest result | 10 suites / 82 tests passed / 0 failed / 0 snapshots |
+| Latest result | 11 suites / 97 tests passed / 0 failed / 0 snapshots |
 | Results log | `test-results.txt` (project root) |
 
 ## How to update this file
@@ -38,7 +38,9 @@ Working notes for the IEEE Software Test Document.
 | 13 | Timer / SessionManager Jest tests + long-break counter fix | Complete / passing |
 | 14 | Goals model, GoalManager integration, redesigned GoalsScreen | Complete / passing |
 | 15 | GoalManager direct unit tests (TC_GOAL_01–10) | Complete / passing |
-| 16+ | Statistics, settings, Windows features, final integration | Not started |
+| 16 | Statistics dashboard + runtime completion histories | Complete / passing |
+| 17 | StatisticsEngine direct unit tests (TC_STATS_01–12) | Complete / passing |
+| 18+ | Settings, Windows features, final integration | Not started |
 
 ---
 
@@ -46,8 +48,8 @@ Working notes for the IEEE Software Test Document.
 
 - **Test Scope**
   - Automated Jest UI and unit tests for FocusFlow React Native for Windows (TypeScript)
-  - Covers: navigation shell, shared UI components, TasksScreen interactions, task validation, TaskManager business logic (including Recently Deleted), SqliteTaskRepository persistence behavior (via injected fake `DatabaseService`), Focus Session / TimerService / SessionManager, and GoalManager daily/weekly target/progress calculations
-  - Does not cover as automated Jest: native turbo-sqlite engine I/O, Windows packaging/deploy, GoalsScreen visual layout, Statistics/Settings, notifications, export, authentication, cloud services
+  - Covers: navigation shell, shared UI components, TasksScreen interactions, task validation, TaskManager business logic (including Recently Deleted and runtime completion events), SqliteTaskRepository persistence behavior (via injected fake `DatabaseService`), Focus Session / TimerService / SessionManager completion events, GoalManager calculations, and StatisticsEngine daily/weekly/history/score/streak calculations
+  - Does not cover as automated Jest: native turbo-sqlite engine I/O, Windows packaging/deploy, visual layout, Settings, notifications, export, authentication, cloud services
 
 - **Test Objectives**
   - Verify default screen and sidebar navigation between 5 sections
@@ -59,7 +61,9 @@ Working notes for the IEEE Software Test Document.
   - Confirm TimerService timestamp countdown (start/pause/resume/reset/skip/accuracy)
   - Confirm SessionManager Pomodoro transitions, counters, long-break cycle, and skip/interrupt rules
   - Confirm GoalManager defaults, task/session/minute percentages, daily/weekly completion, remaining amounts, formatted progress, and reset behavior
-  - Confirm prior application suites remain green after Stages 14–15 work
+  - Confirm dated runtime task/session completion records are cloned, exact, and not emitted by skip/reset
+  - Confirm StatisticsEngine filtering, totals, 40/40/20 score, category boundaries/messages, Monday weeks, 90-day history, no-data behavior, and Fair-or-better streaks
+  - Confirm prior application suites remain green after Stages 16–17 work
 
 - **Test Items**
   - `App.tsx` + `Sidebar`
@@ -71,8 +75,11 @@ Working notes for the IEEE Software Test Document.
   - `src/managers/TaskManager.ts`
   - `src/managers/SessionManager.ts`
   - `src/managers/GoalManager.ts`
+  - `src/managers/StatisticsEngine.ts`
   - `src/models/Goal.ts`
+  - `src/models/DailyProductivity.ts`
   - `src/screens/GoalsScreen.tsx`
+  - `src/screens/StatisticsScreen.tsx`
   - `src/services/TimerService.ts`
   - `src/repositories/SqliteTaskRepository.ts`, `ITaskRepository.ts`, `InMemoryTaskRepository.ts`
   - `src/services/DatabaseService.ts`
@@ -92,6 +99,11 @@ Working notes for the IEEE Software Test Document.
   - Daily/weekly goal defaults and editable targets
   - Strongly typed task/session/minute progress, capped percentages, overall completion, status, summaries, completion messages, and target-preserving reset
   - Goal progress adapter reads actual stored completed tasks and current-runtime completed focus sessions
+  - Runtime-only, typed task and natural session completion histories with real timestamps and configured durations
+  - Daily/weekly statistics dashboard, selected-date navigation, score/result, streak, recent history, and custom 90-day activity grid
+  - Score formula: 40% task-goal fulfillment + 40% focus-minute fulfillment + 20% focus-session fulfillment; each component capped at 100%, total rounded/clamped to 0–100
+  - Categories: Excellent 85–100, Good 70–84, Fair 50–69, Needs Improvement 0–49; messages centralized in StatisticsEngine
+  - Monday–Sunday week summaries, zero-filled history, and Fair-or-better (`score >= 50`) streaks
 
 - **Features Not Yet Tested**
   - Native turbo-sqlite engine behavior inside Jest (suite uses fake/in-memory doubles)
@@ -100,7 +112,7 @@ Working notes for the IEEE Software Test Document.
   - Parent/subtask completion business rules (not implemented)
   - Session persistence / SessionRepository
   - Goal target/reset persistence (deferred to Settings)
-  - Calendar-accurate daily/weekly goal history (task completion timestamps and persisted session records do not yet exist)
+  - Completion history across app restarts (runtime events are intentionally in memory)
   - Statistics / Settings persistence
   - Notifications, system tray, export, authentication, cloud services
   - Visual style details (colors, spacing, fonts) as automated assertions
@@ -131,20 +143,22 @@ Working notes for the IEEE Software Test Document.
   - PlatformToolset patch for turbo-sqlite (`postinstall`) must remain after reinstalls (DEF-006)
   - Focus Session state is not persisted across app restart
   - Goal targets and reset baselines are in memory and return to defaults after app restart
-  - Existing Task/Session APIs provide no completion timestamps; daily and weekly cards currently use the same available real totals, with independent targets/reset baselines
+  - New task/session completions have in-memory timestamps, but existing persisted Completed tasks have no historical date and are reported only as an undated snapshot
+  - Statistics history resets on app restart; it must not be presented as durable historical reporting
+  - Calendar normalization uses local calendar dates consistently; DST-safe date stepping uses calendar operations rather than fixed 24-hour offsets
   - Full 25-minute UI wait for natural work completion is not part of routine manual checks; Jest covers natural completion / long-break paths with timestamps
   - If `npm test` preset breaks, use `npm run test:windows`
 
 - **Pass/Fail Criteria**
   - **Pass:** actual behavior matches expected behavior and the Jest assertion succeeds; suite exits 0
   - **Fail:** behavior differs from expected result, an assertion fails, or the test suite cannot execute
-  - **Stage gate (current):** Stages 1–15 green (`Failed Tests: 0`); Stage 16 (Statistics) is next
+  - **Stage gate (current):** Stages 1–17 green (`Failed Tests: 0`); Stage 18 (Settings) is next
 
 ---
 
 ## 2. TEST CASE INFORMATION
 
-Primary case catalog for **Stages 1–15** is below (single integrated table). All cases are **Pass** in the latest `test-results.txt` run (**82/82**).
+Primary case catalog for **Stages 1–17** is below (single integrated table). All cases are **Pass** in the latest `test-results.txt` run (**97/97**).
 
 | Test Case ID | Objective | Input | Expected Output | Execution Steps | Actual Output | Pass/Fail |
 |---|---|---|---|---|---|---|
@@ -230,6 +244,21 @@ Primary case catalog for **Stages 1–15** is below (single integrated table). A
 | TC_GOAL_08 | Complete configured weekly targets | Targets/progress 2, 1, 25 | Weekly Complete + message | Set targets; synchronize totals | Weekly complete | Pass |
 | TC_GOAL_09 | Reset periods while preserving targets | Custom targets + nonzero progress | Selected period zeroed; targets retained | Reset daily, then weekly; inspect both | Progress reset; targets retained | Pass |
 | TC_GOAL_10 | Cap and average percentages | 50%, 50%, over-target minutes | Metrics 50/50/100; overall 67% | Set targets; synchronize totals | 67% overall | Pass |
+| TC_TASK_MGR_11 | Record task completion once | In Progress task; complete twice with controlled dates | One cloned event with first completion date | Complete twice; inspect/mutate returned history | One immutable-source event | Pass |
+| TC_SESSION_10 | Record natural work/break completions | Finish work then short break | Two events with exact mode/date/configured duration | Tick each segment to zero; inspect history | Exact events recorded | Pass |
+| TC_SESSION_11 | Exclude skip/reset from completion history | Partially run then skip/reset | No completion event | Exercise skip and reset; inspect history | Empty history | Pass |
+| TC_STATS_01 | Filter selected-date totals | Task/work/break events across two dates | Correct task/session/focus/break totals for selected date | Summarize controlled date | Totals matched | Pass |
+| TC_STATS_02 | Apply productivity formula | 50% of all three daily targets | Score 50 from 40/40/20 weights | Calculate score directly | Score 50 | Pass |
+| TC_STATS_03 | Cap and clamp score | Over-target, negative, >100 inputs | Result remains 0–100 | Calculate scores/results | Capped/clamped | Pass |
+| TC_STATS_04 | Map result boundaries/messages | 85,84,70,69,50,49 | Exact four categories and centralized message | Request results | Boundaries matched | Pass |
+| TC_STATS_05 | Handle empty data/division zero | No events; zero targets | Score 0; no activity; Needs Improvement | Summarize day | Safe zero result | Pass |
+| TC_STATS_06 | Build weekly summary | Controlled events in week of Jul 16 | Monday Jul 13–Sunday Jul 19; totals/average/productive/best | Summarize week | Summary matched | Pass |
+| TC_STATS_07 | Build 90-day history | One event; request 120 days | 90 ordered, zero-filled records | Build history | 90 records | Pass |
+| TC_STATS_08 | Count Fair-or-better streak | Three consecutive score-50 days | Streak 3 | Calculate at third day | Streak 3 | Pass |
+| TC_STATS_09 | Handle inactive today | Two productive prior days; no today data | Streak looks back from yesterday = 2 | Calculate today | Streak 2 | Pass |
+| TC_STATS_10 | Exclude future/poor days | Below-Fair today plus future productive event | Current streak 0 | Calculate today | Streak 0 | Pass |
+| TC_STATS_11 | Separate focus and break durations | Short + long break events only | 0 focus; 20 break minutes; score 0 | Summarize day | Durations separated | Pass |
+| TC_STATS_12 | Refresh injected production sources | Runtime events + one undated persisted completed task | Runtime event counted on day; snapshot separate | Refresh injected engine | No fabricated snapshot date | Pass |
 
 ---
 
@@ -324,11 +353,23 @@ npm run test:windows -- --verbose > test-results.txt 2>&1
   4. For manual UI: open Goals, review daily/weekly cards and bars, edit targets, complete available task/session activity, and select Reset Goals
 - **Post-Execution Actions:** Record actual automated/manual results and known data-history limitations
 
+### TP-STATS — Statistics / StatisticsEngine (Stages 16–17)
+
+- **Procedure ID:** TP-STATS
+- **Description:** Verify runtime event sources, daily/weekly summaries, score/category/message, streak, 90-day zero-filled history, and snapshot separation
+- **Test Environment:** Jest direct unit tests with controlled local dates and injected manager sources; optional Windows dashboard spot-check
+- **Steps to Execute:**
+  1. Run `npm run test:windows -- --verbose > test-results.txt 2>&1`
+  2. Confirm `StatisticsEngine.test.ts` executes TC_STATS_01–12 plus manager history regressions TC_TASK_MGR_11 and TC_SESSION_10–11
+  3. Run `npx tsc --noEmit`
+  4. Run `npx react-native run-windows`; inspect dashboard/date/period/history states where interactive access is available
+- **Post-Execution Actions:** Record only actual checks. Existing persisted Completed count is snapshot metadata, never dated history.
+
 ---
 
 ## 4. TEST RESULTS INFORMATION
 
-Latest full automated run (`test-results.txt`): **10 suites / 82 tests passed / 0 failed / 0 snapshots**.
+Latest full automated run (`test-results.txt`): **11 suites / 97 tests passed / 0 failed / 0 snapshots**.
 
 | Test Case ID | Description | Result | Test Log (brief) | Defect ID |
 |---|---|---|---|---|
@@ -344,15 +385,18 @@ Latest full automated run (`test-results.txt`): **10 suites / 82 tests passed / 
 | TC_TIMER_01–05, TC_TIMER_08 | TimerService | Pass | Timestamp countdown | N/A |
 | TC_TIMER_06–07, TC_SESSION_01–09 | SessionManager / Pomodoro | Pass | Modes, counters, long-break cycle | N/A |
 | TC_GOAL_01–10 | GoalManager daily/weekly goals | Pass | Defaults, progress, completion, reset, percentages | N/A |
+| TC_TASK_MGR_11 | Task completion event history | Pass | One event per In Progress → Completed transition | N/A |
+| TC_SESSION_10–11 | Session completion event history | Pass | Natural completions only; exact configured duration | N/A |
+| TC_STATS_01–12 | StatisticsEngine | Pass | Daily/weekly/history/score/category/streak and injected refresh | N/A |
 
 ---
 
 ## 5. DEFECT TRACKING INFORMATION
 
-Latest automated product test run: **0 failed** (**10 suites / 82 tests passed**).  
-Stages 1–15 complete. Product defects from Stages 9–10 are fixed (DEF-005–008). DEF-004 remains an open deploy workaround when the app locks DLLs.
+Latest automated product test run: **0 failed** (**11 suites / 97 tests passed**).
+Stages 1–17 complete. Product defects from Stages 9–10 are fixed (DEF-005–008). DEF-004 remains an open deploy workaround when the app locks DLLs.
 
-No defects were discovered during Stages 14–15.
+One pre-existing regression was discovered before Statistics work and fixed as D_STAGE16_01.
 
 Historical defects found during setup / earlier automated testing (and fixed) are logged below.
 
@@ -368,6 +412,13 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | DEF-008 | `react-native.config.js` used `project.ios: null` / `project.android: null`, rejected by RN CLI (`must be of type object`), blocking Windows runs after Windows-only cleanup. | Major | 1. Set ios/android to null in react-native.config.js 2. Run `npx react-native run-windows` | Fixed | Use empty objects `{}` for ios/android. |
 | D_STAGE10_01 | `react-native.config.js` null ios/android blocked `run-windows` (same as DEF-008). | Major | Set ios/android to `null`; run `run-windows` | Fixed | Use `{}` instead of `null`. |
 | D_STAGE10_02 | Jest collected `__tests__/helpers/FakeDatabaseService.ts` as a test suite. | Minor | Place helper under `__tests__/` without `.test` suffix | Fixed | Moved to `src/testing/FakeDatabaseService.ts`. |
+| D_STAGE16_01 | TC_GOAL_10 could fail after midnight because `GoalManager.setTargets()` called `getProgress()` with the machine's real current date, rolling the controlled test manager's baseline before `synchronizeProgress(now)`. | Major | 1. Construct GoalManager with a controlled prior date 2. Call `setTargets()` after the real calendar date changes 3. Synchronize with the controlled date 4. Observe progress baseline incorrectly reset | Fixed | GoalManager now preserves its last controlled reference date for target changes and accepts an optional `now`; all existing TC_GOAL IDs remain unchanged and green. |
+
+### Stages 16–17 defect detail
+
+| ID | Severity | Description | Steps to reproduce | Expected | Actual | Root cause | Fix | Status | Fix stage | Regression |
+|---|---|---|---|---|---|---|---|---|---|---|
+| D_STAGE16_01 | Major | Controlled GoalManager progress could reset after the machine crossed into a new calendar day. | Construct with a controlled date; call `setTargets()` after the real date changes; synchronize using the controlled date. | Target editing preserves the manager's controlled period and progress. | The implicit real date rolled the baseline, producing zero progress in TC_GOAL_10. | `setTargets()` called `getProgress()` without carrying the manager's reference date. | Preserve the last controlled reference date and accept an optional `now` in `setTargets()`. | Fixed | Stage 16 | Existing TC_GOAL_10 now passes deterministically. |
 
 ### Defect field notes (for STD authors)
 
@@ -384,13 +435,13 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 
 | Metric | Value |
 |---|---|
-| Total Test Suites | 10 |
-| Total Test Cases | 82 |
-| Passed | 82 |
+| Total Test Suites | 11 |
+| Total Test Cases | 97 |
+| Passed | 97 |
 | Failed | 0 |
 | Pass Percentage | 100% |
 | Snapshots | 0 |
-| Overall System Status (tested scope) | Stages 1–15 green; Goals / GoalManager covered; Stage 16 (Statistics) next |
+| Overall System Status (tested scope) | Stages 1–17 green; Statistics / StatisticsEngine covered; Stage 18 (Settings) next |
 
 ### Suite map
 
@@ -406,8 +457,9 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | TimerService | `__tests__/TimerService.test.ts` | TC_TIMER_01–05, TC_TIMER_08 |
 | SessionManager | `__tests__/SessionManager.test.ts` | TC_TIMER_06–07, TC_SESSION_01–09 |
 | GoalManager | `__tests__/GoalManager.test.ts` | TC_GOAL_01–10 |
+| StatisticsEngine | `__tests__/StatisticsEngine.test.ts` | TC_STATS_01–12 |
 
-### Implementation milestones (Stages 1–15)
+### Implementation milestones (Stages 1–17)
 
 | Sprint | Stages | Delivered | Key test IDs |
 |---|---|---|---|
@@ -417,6 +469,7 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Task persistence | 9–10 | SQLite, `SqliteTaskRepository`, repo tests | TC_TASK_REPO_*, TC_TASK_REPO_REG_* |
 | Focus Session & timer | 11–13 | FocusScreen, `TimerService`, `SessionManager`, long-break cycle fix | TC_TIMER_*, TC_SESSION_* |
 | Goals | 14–15 | Goal model, GoalManager, redesigned GoalsScreen, direct tests | TC_GOAL_* |
+| Statistics | 16–17 | Runtime completion events, StatisticsEngine, dashboard, custom 90-day grid | TC_TASK_MGR_11, TC_SESSION_10–11, TC_STATS_* |
 
 ### Key implementation notes (integrated)
 
@@ -444,6 +497,17 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 - Task completion timestamps and persisted session records do not exist, so calendar-accurate daily-versus-weekly historical filtering is not possible in this stage. Daily/weekly targets and reset baselines remain independent.
 - Goal persistence is deferred to Stage 18 Settings rather than adding a standalone repository.
 
+**Statistics (Stages 16–17)**
+- `TaskManager` records only new In Progress → Completed transitions in a typed, cloned in-memory event list. Existing Completed rows remain undated snapshot metadata.
+- `SessionManager` records only natural work/short-break/long-break finishes with `completedAt` and the configured duration. Skip, pause, and reset never create completion events.
+- No SessionRepository or schema change was introduced; statistics history is runtime-only and resets on restart.
+- Daily records use normalized local calendar dates. Weeks start Monday and contain seven zero-safe days. History is ordered, zero-filled, and capped at 90 days.
+- Score = 40% task-goal fulfillment + 40% focus-minute fulfillment + 20% focus-session fulfillment. Each ratio is capped at 100%; result is rounded and clamped 0–100.
+- Result boundaries/messages: Excellent 85–100, Good 70–84, Fair 50–69, Needs Improvement 0–49; messages are centralized.
+- Messages: Excellent — “Outstanding day! You were highly productive.”; Good — “Great effort! You had a productive day.”; Fair — “Not bad! A little more focus tomorrow can make a big difference.”; Needs Improvement — “Today was tough — tomorrow is a fresh start!”
+- Streak requires an active day scoring at least 50. Future/no-data days never count. If today has no activity, calculation starts at yesterday; if today has activity below 50, streak is 0.
+- `StatisticsScreen` delegates calculations to StatisticsEngine, polls manager sources, provides daily/weekly and date controls, loading/error/empty states, metric cards, weekly summary, recent history, and a package-free 90-day grid.
+
 ### Manual verification summary
 
 | Area | Method | Result |
@@ -452,16 +516,16 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Focus Session UI (Stages 11–13) | `npx react-native run-windows` + UI Automation | Start/Pause/Resume/Skip/Reset — Pass; countdown updates — Pass |
 | Long break full UI cycle | Not run at real 25m×4 duration | Covered by Jest TC_TIMER_07, TC_SESSION_07 |
 | Goals UI (Stages 14–15) | `npx react-native run-windows` | Build, deploy, and app start — Pass after closing the existing FocusFlow process that held `ReactNativeTurboSqlite.dll` (known DEF-004 pattern). Interactive visual/click verification was not available in this agent environment; daily/weekly calculations, completion messages, percentages, and reset semantics are covered by TC_GOAL_01–10. |
+| Statistics UI (Stages 16–17) | `npx react-native run-windows` + Windows UI Automation | Pass — build/deploy/start exited 0; Statistics navigation opened the live dashboard; Daily/Weekly controls, score/category/message, streak, 90-day grid, recent-history empty state, and undated persisted-task note were present. Weekly toggle displayed its summary and no-data state without crashing. Creating a completion through UI Automation was not reliable, so event reflection remains verified by TC_TASK_MGR_11, TC_SESSION_10–11, and TC_STATS_12 rather than claimed as a manual pass. |
 
 Deploy note: close running FocusFlow before redeploy if DLL file lock occurs (DEF-004).
 Stage 14–15 launch note: the first overlapping native compile reported C1041 on `vc145.pdb`; a single retry built successfully. Deployment then encountered the known DLL lock, `tasklist /m ReactNativeTurboSqlite.dll` identified `FocusFlow.exe`, and closing only that process allowed the final build/deploy/start command to exit 0.
 
 ### Features not yet tested
 
-- Statistics / StatisticsEngine
 - Settings persistence
 - Session persistence / SessionRepository
-- Calendar-accurate goal history and goal target persistence
+- Durable cross-restart statistics history and goal target persistence
 - Notifications / system tray
 - Schema migrations / corrupt DB recovery / large datasets
 - Final integration

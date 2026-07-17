@@ -10,6 +10,12 @@ export const WORK_SESSIONS_BEFORE_LONG_BREAK = 4;
 
 export type SessionModeLabel = 'Work Session' | 'Short Break' | 'Long Break';
 
+export type CompletedSessionEvent = {
+  mode: TimerMode;
+  completedAt: string;
+  durationMs: number;
+};
+
 export type SessionSnapshot = {
   mode: TimerMode;
   modeLabel: SessionModeLabel;
@@ -71,6 +77,7 @@ export class SessionManager {
   private selectedTaskId: string | null = null;
   private selectedTaskTitle: string | null = null;
   private hadProgressInSegment = false;
+  private completionHistory: CompletedSessionEvent[] = [];
   /** Prevents duplicate completion handling when multiple ticks land at zero. */
   private isCompletingSegment = false;
 
@@ -145,7 +152,7 @@ export class SessionManager {
       this.hadProgressInSegment &&
       this.timer.getRemainingTime(now) === 0
     ) {
-      this.completeCurrentSegment();
+      this.completeCurrentSegment(now);
     }
     return this.getSnapshot(now);
   }
@@ -188,6 +195,14 @@ export class SessionManager {
     return this.completedBreaks;
   }
 
+  getCompletionHistory(): CompletedSessionEvent[] {
+    return this.completionHistory.map(event => ({...event}));
+  }
+
+  resetCompletionHistoryForTests(): void {
+    this.completionHistory = [];
+  }
+
   getSkippedSessions(): number {
     return this.skippedSessions;
   }
@@ -227,7 +242,7 @@ export class SessionManager {
     );
   }
 
-  private completeCurrentSegment(): void {
+  private completeCurrentSegment(completedAtMs: number): void {
     if (this.isCompletingSegment || !this.hadProgressInSegment) {
       return;
     }
@@ -236,6 +251,7 @@ export class SessionManager {
 
     try {
       const mode = this.timer.getCurrentMode();
+      const durationMs = this.timer.getDurationMs();
       if (mode === 'work') {
         this.completedWorkSessions += 1;
         this.workSessionsTowardLongBreak += 1;
@@ -243,6 +259,11 @@ export class SessionManager {
         // Short or long break — each natural finish counts once.
         this.completedBreaks += 1;
       }
+      this.completionHistory.push({
+        mode,
+        completedAt: new Date(completedAtMs).toISOString(),
+        durationMs,
+      });
       this.advanceModeAfterCompletion(mode);
     } finally {
       this.isCompletingSegment = false;
