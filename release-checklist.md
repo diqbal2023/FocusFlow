@@ -22,64 +22,55 @@
 ## Stage 21 final integration
 
 - [x] Final end-to-end integration workflow (`TC_E2E_01` + prior Stage suites)
-- [x] First-launch onboarding wizard implemented and tested (`TC_ONBOARD_01–03`)
+- [x] First-launch onboarding wizard implemented and tested (`TC_ONBOARD_01ï¿½03`)
 - [x] Requirement-by-requirement verification (`requirements-checklist.md`)
 - [x] Final persisted-data and restart checks (automated settings reload + Stage 20 install evidence)
 - [x] Final Jest regression: 15 suites / 116 tests; TypeScript exit 0
 - [x] Final release asset review (`artifacts/windows/FocusFlow-v1.0.0-x64/`)
-- [x] Publish GitHub Release — **manual** (see steps below; `gh` CLI unavailable in Stage 21 environment)
+- [x] Publish GitHub Release â€” **published** at https://github.com/diqbal2023/FocusFlow/releases/tag/v1.0.0 (exactly three assets)
 
 ## In-repo release mirror
 
 Tracked copy of the GitHub Release **FocusFlow v1.0** assets (MSIX + docs): `Releases/FocusFlow v1.0/`. Certificates and dependency zips stay out of that folder. Build outputs remain under `artifacts/` (gitignored).
 
-## Prepared GitHub Release structure
+## Published GitHub Release structure
 
 Title: **FocusFlow v1.0**
+URL: https://github.com/diqbal2023/FocusFlow/releases/tag/v1.0.0
 
-Expected attachments (do not commit binaries to Git):
+Release attachments (exactly three; do not commit binaries to Git):
 
 1. `FocusFlow.msix` (from `artifacts/windows/FocusFlow-v1.0.0-x64/`)
-2. `FocusFlow.cer`
-3. `FocusFlow-dependencies-x64.zip`
-4. `installation-instructions.md`
-5. `release-notes.md`
+2. `installation-instructions.md` (repo root)
+3. `release-notes.md` (repo root)
 
-Optional: `requirements-checklist.md`
+`FocusFlow.cer` and `FocusFlow-dependencies-x64.zip` remain in local packaging output only and are not GitHub Release assets. The in-repo `Releases/FocusFlow v1.0/` mirror matches the same three-file layout.
 
 ## Manual GitHub Release publish steps
 
-`gh` was not installed in the Stage 21 agent environment. Publish from a machine with GitHub CLI or the GitHub website:
-
-### Option A — GitHub CLI
+### Option A - GitHub CLI
 
 ```powershell
-# From the repo root after committing Stage 21 source/docs (not binaries):
+# From the repo root after committing source/docs (not binaries):
 winget install --id GitHub.cli
 gh auth login
 
-# Tag (annotated):
 git tag -a v1.0.0 -m "FocusFlow v1.0"
 git push origin v1.0.0
 
-# Create the release and attach artifacts (paths relative to repo root):
 gh release create v1.0.0 `
   --title "FocusFlow v1.0" `
   --notes-file release-notes.md `
   "artifacts/windows/FocusFlow-v1.0.0-x64/FocusFlow.msix" `
-  "artifacts/windows/FocusFlow-v1.0.0-x64/FocusFlow.cer" `
-  "artifacts/windows/FocusFlow-v1.0.0-x64/FocusFlow-dependencies-x64.zip" `
   "installation-instructions.md" `
   "release-notes.md"
 ```
 
-### Option B — GitHub website
+### Option B - GitHub website
 
 1. Open https://github.com/diqbal2023/FocusFlow/releases/new
 2. Choose tag `v1.0.0` (create the tag on `master` if needed)
 3. Set release title to **FocusFlow v1.0**
 4. Paste the body from `release-notes.md`
-5. Attach the five assets listed above from `artifacts/windows/FocusFlow-v1.0.0-x64/` and the repo root docs
+5. Attach only the three assets listed above
 6. Publish the release
-
-Do **not** invent a published release URL until these steps succeed.

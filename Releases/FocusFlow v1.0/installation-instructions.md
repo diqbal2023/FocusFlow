@@ -3,28 +3,35 @@
 ## Package
 
 - Installer: `FocusFlow.msix`
-- Public signing certificate: `FocusFlow.cer`
-- Runtime prerequisites: `FocusFlow-dependencies-x64.zip`
+- Signer certificate: not a GitHub Release asset (export from MSIX or use local `artifacts/windows/FocusFlow-v1.0.0-x64/FocusFlow.cer`)
+- Runtime prerequisites: Windows App Runtime 1.8 / VCLibs (often already installed; local `FocusFlow-dependencies-x64.zip` artifact if needed)
 - Version: `1.0.0.0`
 - Architecture: x64
 - Publisher: `CN=catsr` (local development signing)
 - Supported OS: Windows 10 version 1903 (build 18362) or newer; Windows 11 is supported
 
-This is a prepared, development-signed sideload package. Stage 21 verification is complete; publish via the GitHub Release steps in `release-checklist.md` when ready.
+GitHub Release **FocusFlow v1.0** (`v1.0.0`) attaches exactly three files: `FocusFlow.msix`, `installation-instructions.md`, and `release-notes.md`. Published at https://github.com/diqbal2023/FocusFlow/releases/tag/v1.0.0
 
 ## Prerequisites
 
 1. Use a 64-bit Windows 10/11 computer.
 2. Install current Windows updates.
 3. Use an administrator account to trust the development certificate for the local computer.
-4. Keep `FocusFlow.msix` and `FocusFlow.cer` from the same release build together.
-5. Ensure Microsoft Windows App Runtime 1.8 and Microsoft Visual C++ package frameworks are installed. The prepared x64 dependency archive contains the generated Windows App Runtime package; Windows Update/Microsoft Store normally supplies the VCLibs frameworks.
+4. Download `FocusFlow.msix` from the GitHub Release; obtain the signer `.cer` by export (below) or from local packaging artifacts.
+5. Ensure Microsoft Windows App Runtime 1.8 and Microsoft Visual C++ package frameworks are installed. They are often already present via Windows Update/Microsoft Store. `FocusFlow-dependencies-x64.zip` is not a GitHub Release asset; use it from local `artifacts/windows/FocusFlow-v1.0.0-x64/` if the installer reports a missing runtime.
 
 The package includes FocusFlow, its production Hermes JavaScript bundle, and the native SQLite module. Metro and a development server are not required.
 
 ## Trust the development certificate
 
-Only trust `FocusFlow.cer` obtained with this exact release.
+The public certificate is not attached to the GitHub Release. Export it from the signed MSIX, then trust that file:
+
+```powershell
+$sig = Get-AuthenticodeSignature -FilePath .\FocusFlow.msix
+Export-Certificate -Cert $sig.SignerCertificate -FilePath .\FocusFlow.cer
+```
+
+Or use `artifacts/windows/FocusFlow-v1.0.0-x64/FocusFlow.cer` from the same local release build. Only trust a .cer that matches this release signer (CN=catsr).
 
 1. Double-click `FocusFlow.cer`.
 2. Select **Install Certificate**.
@@ -36,7 +43,7 @@ For a production release, replace this local certificate with an organization-co
 
 ## Install and launch
 
-1. If Windows reports a missing `Microsoft.WindowsAppRuntime.1.8` dependency, extract `FocusFlow-dependencies-x64.zip` and install its `.msix` first.
+1. If Windows reports a missing `Microsoft.WindowsAppRuntime.1.8` dependency, obtain `FocusFlow-dependencies-x64.zip` from local packaging artifacts (not the GitHub Release) and install its `.msix` first.
 2. Double-click `FocusFlow.msix`.
 3. Select **Install**.
 4. Launch FocusFlow from the installer or the Start menu.
@@ -67,7 +74,7 @@ During Stage 20 the existing development registration was replaced (with applica
 
 ## Troubleshooting
 
-- **The root certificate is not trusted / 0x800B0109:** install `FocusFlow.cer` into the **Local Machine > Trusted People** store. Current-user trust was insufficient on the Stage 20 test computer; the machine-level trust step resolved installation.
+- **The root certificate is not trusted / 0x800B0109:** export or obtain `FocusFlow.cer`, then install it into the **Local Machine > Trusted People** store. Current-user trust was insufficient on the Stage 20 test computer; the machine-level trust step resolved installation.
 - **Package already installed / version conflict:** close FocusFlow, then retry. Do not remove the old package unless local data has been backed up.
 - **A development version blocks installation / 0x80073CFB:** an unpackaged development registration of FocusFlow exists. Back up your data, then remove it with `Remove-AppxPackage -Package <full-name> -PreserveApplicationData` and install the MSIX again.
 - **Windows protected your PC / SmartScreen:** verify the package source, filename, signer (`CN=catsr`), and release checksum before continuing. A local development certificate has no public reputation.
@@ -81,3 +88,4 @@ During Stage 20 the existing development registration was replaced (with applica
 - System tray and launch-on-startup behavior were not approved requirements and are not implemented.
 - Session state and statistics completion history do not persist across restarts.
 - React Native `0.86.0` and React Native Windows `0.84.0` have an existing peer-version mismatch; the validated package retains that dependency set.
+

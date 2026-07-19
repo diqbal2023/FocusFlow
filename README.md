@@ -29,8 +29,8 @@ FocusFlow combines local task management, Pomodoro-style focus sessions, goals, 
 
 Install from either source. Certificate trust steps are required for the self-signed package (`CN=catsr`).
 
-1. **GitHub Release** — download assets from [v1.0.0](https://github.com/diqbal2023/FocusFlow/releases/tag/v1.0.0) (`FocusFlow.msix`, `FocusFlow.cer`, dependency zip if needed).
-2. **In-repo mirror** — `Releases/FocusFlow v1.0/` (`FocusFlow.msix` plus mirrored docs). `FocusFlow.cer` is on the GitHub Release and may not be in this folder.
+1. **GitHub Release** - download assets from [v1.0.0](https://github.com/diqbal2023/FocusFlow/releases/tag/v1.0.0) (`FocusFlow.msix`, `installation-instructions.md`, `release-notes.md` only).
+2. **In-repo mirror** - `Releases/FocusFlow v1.0/` (same three files). Signer `.cer` and dependency zip are not GitHub Release assets; use local packaging artifacts or export the cert from the MSIX (see installation instructions).
 
 Full certificate trust, install, troubleshooting, and uninstall steps: [`installation-instructions.md`](installation-instructions.md) (mirror: [`Releases/FocusFlow v1.0/installation-instructions.md`](Releases/FocusFlow%20v1.0/installation-instructions.md)).
 
