@@ -65,7 +65,7 @@ function parse(value: string): number {
   return value.trim() === '' ? Number.NaN : Number(value);
 }
 
-function fromForm(form: FormState): AppSettings {
+function fromForm(form: FormState, existing: AppSettings): AppSettings {
   return {
     timer: {
       workMinutes: parse(form.workMinutes),
@@ -94,6 +94,7 @@ function fromForm(form: FormState): AppSettings {
       confirmBeforeDeletingTasks: form.confirmBeforeDeletingTasks,
       showCompletedTasks: form.showCompletedTasks,
     },
+    onboardingCompleted: existing.onboardingCompleted,
   };
 }
 
@@ -146,7 +147,7 @@ export function SettingsScreen(
     setErrors({});
     setMessage(null);
     try {
-      await manager.save(fromForm(form));
+      await manager.save(fromForm(form, manager.getCurrent()));
       setMessage('Settings saved.');
     } catch (error) {
       if (error instanceof SettingsValidationError) {

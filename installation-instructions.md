@@ -10,7 +10,7 @@
 - Publisher: `CN=catsr` (local development signing)
 - Supported OS: Windows 10 version 1903 (build 18362) or newer; Windows 11 is supported
 
-This is a prepared, development-signed sideload package. It has not been published through the Microsoft Store or a GitHub Release.
+This is a prepared, development-signed sideload package. Stage 21 verification is complete; publish via the GitHub Release steps in `release-checklist.md` when ready.
 
 ## Prerequisites
 
@@ -53,6 +53,8 @@ The Start menu entry and installed display name are **FocusFlow**.
 
 FocusFlow stores settings and tasks locally in the package's `LocalState` SQLite database. Normal package updates preserve this data. FocusFlow is offline-first and the release manifest does not request internet access.
 
+On first launch (empty settings), FocusFlow shows a lightweight Welcome / Productivity Setup wizard for timer durations, daily goals, theme, and notification preference. Completing it saves settings and does not appear again unless you use Restore Defaults in Settings.
+
 Uninstalling can remove local app data. Back up important information before uninstalling. The application does not currently provide export/backup.
 
 ## Uninstall
@@ -61,7 +63,7 @@ Uninstalling can remove local app data. Back up important information before uni
 2. Open **Settings > Apps > Installed apps**.
 3. Find **FocusFlow**, open its menu, and select **Uninstall**.
 
-During Stage 20 the existing development registration was replaced (with application data preserved) by the signed package, which installed, launched, and retained all local data. A from-scratch uninstall/reinstall on a clean machine is a Stage 21 check.
+During Stage 20 the existing development registration was replaced (with application data preserved) by the signed package, which installed, launched, and retained all local data. Stage 21 retained that evidence; a from-scratch second physical machine was not available.
 
 ## Troubleshooting
 

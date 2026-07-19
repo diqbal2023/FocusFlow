@@ -26,6 +26,8 @@ export type AppSettings = {
     confirmBeforeDeletingTasks: boolean;
     showCompletedTasks: boolean;
   };
+  /** False until the first-launch setup wizard finishes (or after Restore Defaults). */
+  onboardingCompleted: boolean;
 };
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -48,6 +50,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     confirmBeforeDeletingTasks: true,
     showCompletedTasks: true,
   },
+  onboardingCompleted: false,
 };
 
 export const GOAL_TARGET_LIMITS = {
@@ -67,6 +70,7 @@ export function cloneSettings(settings: AppSettings): AppSettings {
     },
     appearance: {...settings.appearance},
     general: {...settings.general},
+    onboardingCompleted: settings.onboardingCompleted,
   };
 }
 
@@ -134,6 +138,12 @@ export function mergeSettings(stored: unknown): AppSettings {
         value.general?.showCompletedTasks ??
         DEFAULT_APP_SETTINGS.general.showCompletedTasks,
     },
+    // Missing flag means a pre-onboarding install already in use — skip the wizard.
+    onboardingCompleted:
+      typeof (value as {onboardingCompleted?: unknown}).onboardingCompleted ===
+      'boolean'
+        ? Boolean((value as {onboardingCompleted: boolean}).onboardingCompleted)
+        : true,
   };
 }
 
@@ -221,6 +231,11 @@ export function validateSettings(settings: AppSettings): SettingsFieldErrors {
     'general.showCompletedTasks',
     'Show completed tasks',
     settings.general.showCompletedTasks,
+  );
+  boolean(
+    'onboardingCompleted',
+    'Onboarding completed',
+    settings.onboardingCompleted,
   );
   return errors;
 }

@@ -175,12 +175,20 @@ describe('Settings stages 18–19', () => {
     expect(loaded.timer).toEqual(
       expect.objectContaining({workMinutes: 50, shortBreakMinutes: 5}),
     );
+    expect(loaded.onboardingCompleted).toBe(true);
     expect(loaded).not.toHaveProperty('futureSection');
     expect(loaded.timer).not.toHaveProperty('futureTimerOption');
     await repository.save({...DEFAULT_APP_SETTINGS, appearance: {theme: 'dark'}});
     expect(JSON.parse(db.settingsPayload ?? '{}').appearance.theme).toBe('dark');
     await repository.reset();
     expect(db.settingsPayload).toBeNull();
+  });
+
+  test('TC_SETTINGS_REPO_03 treats explicit onboardingCompleted false as incomplete', async () => {
+    const db = new FakeDatabaseService();
+    db.settingsPayload = JSON.stringify({onboardingCompleted: false});
+    const loaded = await new SettingsRepository(db).load();
+    expect(loaded.onboardingCompleted).toBe(false);
   });
 
   test('TC_SETTINGS_REPO_02 rejects corrupt JSON explicitly', async () => {

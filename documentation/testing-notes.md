@@ -5,12 +5,12 @@ Working notes for the IEEE Software Test Document.
 
 | Field | Value |
 |---|---|
-| Last updated | 2026-07-17 (Stages 1–20 integrated; Windows release preparation complete) |
-| Current stage covered | Stages 1–20 (Stage 20 complete: signed MSIX installed and verified; final branding applied) |
-| Source test files | Existing Stage 1–17 suites plus `__tests__/Settings.test.ts` and `__tests__/SettingsScreen.test.tsx` |
+| Last updated | 2026-07-18 (Stages 1–21 complete; final integration and release preparation) |
+| Current stage covered | Stages 1–21 (Stage 21 complete: onboarding wizard, E2E integration, requirements checklist, release readiness) |
+| Source test files | Existing Stage 1–20 suites plus `__tests__/Onboarding.test.tsx` and `__tests__/Integration.stage21.test.ts` |
 | Primary command | `npm run test:windows -- --verbose > test-results.txt 2>&1` |
 | Alternate command | `npm test` |
-| Latest result | 13 suites / 111 tests passed / 0 failed / 0 snapshots |
+| Latest result | 15 suites / 116 tests passed / 0 failed / 0 snapshots |
 | Results log | `test-results.txt` (project root) |
 
 ## How to update this file
@@ -42,8 +42,8 @@ Working notes for the IEEE Software Test Document.
 | 17 | StatisticsEngine direct unit tests (TC_STATS_01–12) | Complete / passing |
 | 18 | Settings model, SQLite repository, manager, theme, timer/goals integration, full form | Complete / passing |
 | 19 | Settings manager/repository/UI automation (TC_SETTINGS_*) | Complete / passing |
-| 20 | Windows release preparation, x64 Release/MSIX/signing/docs/install attempt | In progress / signed installation blocked |
-| 21 | Final integration and publication | Not started |
+| 20 | Windows release preparation, x64 Release/MSIX/signing/docs/signed install | Complete / passing |
+| 21 | Final integration, onboarding wizard, requirements checklist, release readiness | Complete / passing |
 
 ---
 
@@ -70,9 +70,11 @@ Working notes for the IEEE Software Test Document.
   - Confirm prior application suites remain green after Stages 16–17 work
   - Confirm settings persist before publication, merge partial stored JSON, reject corruption, apply to timer/goals/theme, and reset preferences without resetting productivity data
   - Confirm the Stage 20 release process is reproducible, produces a signed x64 non-bundle MSIX, embeds the production bundle and native SQLite, preserves the existing Jest baseline, and records installation limitations without claiming unobserved behavior
+  - Confirm Stage 21 first-launch onboarding shows only when incomplete, saves preferences through SettingsManager, initializes GoalManager targets, sets `onboardingCompleted`, and that the manager-level end-to-end workflow covers tasks/focus/long-break/goals/statistics/settings persistence
 
 - **Test Items**
   - `App.tsx` + `Sidebar`
+  - `src/screens/OnboardingScreen.tsx`
   - `AppButton`, `AppInput`, `PageHeader`
   - `TasksScreen` (async TaskManager + repository-backed state)
   - `FocusScreen` (presentation wired to SessionManager)
@@ -94,7 +96,7 @@ Working notes for the IEEE Software Test Document.
   - `src/context/ThemeContext.tsx`, `src/screens/SettingsScreen.tsx`
   - `windows/FocusFlow.Package/Package.appxmanifest`, `windows/FocusFlow/FocusFlow.rc`
   - `scripts/package-windows.ps1`, `.gitignore`, `package.json`, `package-lock.json`
-  - `installation-instructions.md`, `release-notes.md`, `release-checklist.md`
+  - `installation-instructions.md`, `release-notes.md`, `release-checklist.md`, `requirements-checklist.md`
 
 - **Features Tested**
   - Sidebar navigation / active item state
@@ -120,10 +122,12 @@ Working notes for the IEEE Software Test Document.
   - Goal targets including zero (immediately fulfilled), with actual completed work-event minutes
   - Persisted System/Light/Dark preference applied to app shell and shared components
   - x64 Release compilation, RNW production bundle/Hermes compilation, MSIX packaging/signing, manifest identity/version/platform/capability metadata, release asset preparation, and Release-layout launch/reopen with LocalState preservation
+  - First-launch Welcome / Productivity Setup wizard (timer, daily goals, theme, notifications) persisted via SettingsManager with `onboardingCompleted`
+  - Stage 21 end-to-end manager workflow: setup → tasks → focus controls → long break → goals/statistics → settings reload
 
 - **Features Not Yet Tested**
   - Native turbo-sqlite engine behavior inside Jest (suite uses fake/in-memory doubles)
-  - Full manual UI click-path persistence checklist on every release
+  - Full manual UI click-path of the new onboarding wizard on every release host (covered by TC_ONBOARD_* and TC_E2E_01)
   - Schema migrations / corrupt-database recovery / large-dataset performance
   - Parent/subtask completion business rules (not implemented)
   - Session persistence / SessionRepository
@@ -131,11 +135,9 @@ Working notes for the IEEE Software Test Document.
   - Durable statistics/session history
   - Native notification delivery, system tray, launch on startup, export, authentication, cloud services
   - Visual style details (colors, spacing, fonts) as automated assertions
-  - Windows packaging/deploy as an automated test
-  - Final integration behavior
-  - Full manual settings save/restart persistence click path (repository restart semantics are automated)
+  - Windows packaging/deploy as an automated Jest test
   - Complete dark-theme migration of screen-local static StyleSheets
-  - Clean-machine / second-machine MSIX installation and a from-scratch uninstall/reinstall cycle (the signed install on the development host passed after administrator certificate trust)
+  - Clean second physical machine MSIX installation (development-host signed install was verified in Stage 20; package rebuild for Stage 21 onboarding is tracked separately)
 
 - **Test Environment**
   - OS: Windows 10/11 development machine
@@ -179,7 +181,7 @@ Working notes for the IEEE Software Test Document.
 - **Pass/Fail Criteria**
   - **Pass:** actual behavior matches expected behavior and the Jest assertion succeeds; suite exits 0
   - **Fail:** behavior differs from expected result, an assertion fails, or the test suite cannot execute
-  - **Stage gate (current):** 13 suites / 111 tests green; Release build, signed MSIX, administrator-assisted certificate trust, signed installation, Metro-free launch, and data persistence all pass — Stage 20 complete; Stage 21 final integration pending
+  - **Stage gate (current):** 15 suites / 116 tests green; Stage 21 onboarding + E2E integration pass; Stage 20 Release/MSIX signed install remains valid; GitHub Release publish requires manual `gh`/UI steps (CLI unavailable here)
 
 ---
 
@@ -295,15 +297,36 @@ Primary case catalog for **Stages 1–17** is below (single integrated table). A
 | TC_SETTINGS_07 | Preserve active timer segment | Update while running/paused | Current 25m segment retained; idle reset uses 45m | Configure at each state | Rules matched | Pass |
 | TC_SETTINGS_08 | Apply next duration/auto-start | 1m work, 2m break, auto-break | Exact 1m completion; running 2m break | Complete work | Transition matched | Pass |
 | TC_SETTINGS_09 | Handle zero goal targets | All targets 0 | Complete, 100%, finite | Calculate goals | Safe and complete | Pass |
-| TC_SETTINGS_REPO_01 | Merge/upsert/reset singleton | Partial JSON then save/delete | Missing defaults merged; one payload updated/deleted | Repository operations with fake DB | Correct | Pass |
+| TC_SETTINGS_REPO_01–03 | SettingsRepository | Pass | Partial merge, singleton upsert/reset, corrupt JSON, onboarding flag | N/A |
 | TC_SETTINGS_REPO_02 | Reject corrupt JSON explicitly | `{bad` | Corruption error | Repository load | Error surfaced | Pass |
 | TC_SETTINGS_UI_01 | Show field validation | Work minutes 0; Save | Error shown; save not called | RNTL interaction | Correct | Pass |
 | TC_SETTINGS_UI_02 | Save only explicitly | Edit 45/theme Dark, then Save | No per-keystroke write; one save and success | RNTL interaction | Correct | Pass |
 | TC_SETTINGS_UI_03 | Expose all sections/accessibility | Render SettingsScreen | Timer/Goals/Appearance/General and labeled controls | RNTL queries | Present | Pass |
+| TC_ONBOARD_01 | First launch shows setup wizard | App with `onboardingCompleted: false` | Welcome wizard; Tasks hidden | Render App with injected manager | Wizard shown | Pass |
+| TC_ONBOARD_02 | Completed onboarding skips wizard | App with `onboardingCompleted: true` | Tasks screen; no wizard | Render App with injected manager | Wizard skipped | Pass |
+| TC_ONBOARD_03 | Finish saves settings and completes onboarding | Edit timer/goals/theme/notifications; Save | Persisted prefs; GoalManager/SessionManager applied; `onboardingCompleted=true`; main app shown | RNTL finish path | Saved and gated | Pass |
+| TC_SETTINGS_REPO_03 | Explicit incomplete onboarding merges correctly | Stored JSON `{onboardingCompleted:false}` | Flag remains false | Repository load | Incomplete preserved | Pass |
+| TC_E2E_01 | Manager-level end-to-end workflow | Setup → tasks → focus controls → long break → goals/stats → settings reload | All steps succeed with expected counters and persisted settings | Direct manager integration | Pass | Pass |
 
 ---
 
 ## 3. TEST PROCEDURE INFORMATION
+
+Prior stage procedures TP-NAV through TP-WINDOWS remain in force. Stage 21 additions:
+
+### TP-ONBOARD — First-launch setup (Stage 21)
+- **Procedure ID:** TP-ONBOARD
+- **Description:** Verify the lightweight Welcome / Productivity Setup wizard appears only on first launch (or after Restore Defaults), saves via SettingsManager, applies GoalManager targets, and sets `onboardingCompleted`
+- **Steps:** 1. Run Jest including `Onboarding.test.tsx` 2. Confirm TC_ONBOARD_01–03 and TC_SETTINGS_REPO_03 3. Confirm TypeScript `npx tsc --noEmit`
+- **Actual outcome:** Pass — wizard shows when incomplete, skips when complete, persists timer/goals/theme/notifications and marks onboarding complete.
+
+### TP-E2E — Final integration workflow (Stage 21)
+- **Procedure ID:** TP-E2E
+- **Description:** Exercise the approved end-to-end productivity workflow at the manager layer and confirm prior Stage 20 install/persistence evidence still holds
+- **Steps:** 1. Run `TC_E2E_01` 2. Reconfirm Stage 20 signed MSIX artifact hash and package presence under `artifacts/windows/FocusFlow-v1.0.0-x64/` 3. Record that `gh` CLI is unavailable for automated GitHub publish
+- **Actual outcome:** Pass for automated E2E. Stage 20 signed installation evidence retained. GitHub Release not published from this environment.
+
+- **Post-Execution Actions:** Record only observed persistence. Reset changes preferences only; it must not reset tasks, progress, histories, sessions, or statistics. Restore Defaults also clears `onboardingCompleted` so the setup wizard returns (by design).
 
 Exact preferred command for full run + log:
 
@@ -438,7 +461,7 @@ npm run test:windows -- --verbose > test-results.txt 2>&1
 
 ## 4. TEST RESULTS INFORMATION
 
-Latest full automated run (`test-results.txt`): **13 suites / 111 tests passed / 0 failed / 0 snapshots**.
+Latest full automated run (`test-results.txt`): **15 suites / 116 tests passed / 0 failed / 0 snapshots**.
 
 | Test Case ID | Description | Result | Test Log (brief) | Defect ID |
 |---|---|---|---|---|
@@ -458,8 +481,10 @@ Latest full automated run (`test-results.txt`): **13 suites / 111 tests passed /
 | TC_SESSION_10–11 | Session completion event history | Pass | Natural completions only; exact configured duration | N/A |
 | TC_STATS_01–12 | StatisticsEngine | Pass | Daily/weekly/history/score/category/streak and injected refresh | N/A |
 | TC_SETTINGS_01–09 | Settings model/manager/integration | Pass | Defaults, validation, ordering, reset, timer, goals | N/A |
-| TC_SETTINGS_REPO_01–02 | SettingsRepository | Pass | Partial merge, singleton upsert/reset, corrupt JSON | N/A |
+| TC_SETTINGS_REPO_01–03 | SettingsRepository | Pass | Partial merge, singleton upsert/reset, corrupt JSON, onboarding flag | N/A |
 | TC_SETTINGS_UI_01–03 | SettingsScreen | Pass | Invalid/valid save and accessible sections | N/A |
+| TC_ONBOARD_01–03 | First-launch onboarding wizard | Pass | Show/skip/save + complete flag | N/A |
+| TC_E2E_01 | Stage 21 manager E2E workflow | Pass | Setup→tasks→focus→long break→goals/stats→reload | N/A |
 | TP-WINDOWS build/package | x64 Release + signed MSIX | Pass | 17 warnings / 0 errors; bundle/Hermes/SQLite present | D_STAGE20_01 fixed |
 | TP-WINDOWS signed install | `Add-AppxPackage` | Pass | Installed to `WindowsApps` after admin Local Machine Trusted People trust and removal of the loose-layout registration | D_STAGE20_02 fixed |
 | TP-WINDOWS Release runtime | Loose Release layout, launch/reopen | Pass (limited) | Responsive FocusFlow window; no Metro; LocalState task retained | N/A |
@@ -471,8 +496,11 @@ Latest full automated run (`test-results.txt`): **13 suites / 111 tests passed /
 
 ## 5. DEFECT TRACKING INFORMATION
 
-Latest automated product test run: **0 failed** (**13 suites / 111 tests passed**).
-Stages 1–19 complete. Product defects from Stages 9–10 are fixed (DEF-005–008). DEF-004 remains an open deploy workaround when the app locks DLLs.
+Latest automated product test run: **0 failed** (**15 suites / 116 tests passed**).
+Stages 1–21 complete. Product defects from Stages 9–10 are fixed (DEF-005–008). DEF-004 remains an open deploy workaround when the app locks DLLs.
+
+**No defects were discovered during Stage 21.**
+
 
 One pre-existing regression was discovered before Statistics work and fixed as D_STAGE16_01. Settings implementation checks found and fixed D_STAGE18_01–02. Stage 20 found one packaging-script defect, one environment/deployment blocker, and one manifest metadata defect: all three are now resolved. D_STAGE20_02 was fixed by administrator installation of `FocusFlow.cer` into Local Machine Trusted People followed by removal of the conflicting loose-layout registration (`0x80073CFB`) with `-PreserveApplicationData`; the signed MSIX then installed and launched with all data intact.
 
@@ -523,13 +551,13 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 
 | Metric | Value |
 |---|---|
-| Total Test Suites | 13 |
-| Total Test Cases | 111 |
-| Passed | 111 |
+| Total Test Suites | 15 |
+| Total Test Cases | 116 |
+| Passed | 116 |
 | Failed | 0 |
 | Pass Percentage | 100% |
 | Snapshots | 0 |
-| Overall System Status (tested scope) | 13/13 suites and 111/111 tests green; Stage 20 Release/MSIX, signed install, Metro-free launch, and persistence pass |
+| Overall System Status (tested scope) | 15/15 suites and 116/116 tests green; Stages 1–21 complete; onboarding + E2E integration verified; Stage 20 MSIX/install evidence retained; GitHub Release ready for manual publish |
 
 ### Suite map
 
@@ -546,10 +574,12 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | SessionManager | `__tests__/SessionManager.test.ts` | TC_TIMER_06–07, TC_SESSION_01–09 |
 | GoalManager | `__tests__/GoalManager.test.ts` | TC_GOAL_01–10 |
 | StatisticsEngine | `__tests__/StatisticsEngine.test.ts` | TC_STATS_01–12 |
-| Settings stages 18–19 | `__tests__/Settings.test.ts` | TC_SETTINGS_01–09, TC_SETTINGS_REPO_01–02 |
+| Settings stages 18–19 | `__tests__/Settings.test.ts` | TC_SETTINGS_01–09, TC_SETTINGS_REPO_01–03 |
 | SettingsScreen | `__tests__/SettingsScreen.test.tsx` | TC_SETTINGS_UI_01–03 |
+| First-launch onboarding | `__tests__/Onboarding.test.tsx` | TC_ONBOARD_01–03 |
+| Stage 21 E2E integration | `__tests__/Integration.stage21.test.ts` | TC_E2E_01 |
 
-### Implementation milestones (Stages 1–20)
+### Implementation milestones (Stages 1–21)
 
 | Sprint | Stages | Delivered | Key test IDs |
 |---|---|---|---|
@@ -561,7 +591,8 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Goals | 14–15 | Goal model, GoalManager, redesigned GoalsScreen, direct tests | TC_GOAL_* |
 | Statistics | 16–17 | Runtime completion events, StatisticsEngine, dashboard, custom 90-day grid | TC_TASK_MGR_11, TC_SESSION_10–11, TC_STATS_* |
 | Settings | 18–19 | Typed settings, SQLite repository, manager, theme, full form, timer/goals integration | TC_SETTINGS_*, TC_SETTINGS_REPO_*, TC_SETTINGS_UI_* |
-| Windows release preparation | 20 | Manifest/version/capability review, executable icon wiring, x64 Release/Hermes, signed MSIX, release docs, install attempt | TP-WINDOWS (no new service/Jest cases) |
+| Windows release preparation | 20 | Manifest/version/capability review, executable icon wiring, x64 Release/Hermes, signed MSIX, release docs, signed install | TP-WINDOWS (no new service/Jest cases) |
+| Final integration & release | 21 | First-launch onboarding wizard, E2E manager workflow, requirements checklist, release readiness | TC_ONBOARD_*, TC_E2E_01, TC_SETTINGS_REPO_03 |
 
 ### Key implementation notes (integrated)
 
@@ -608,7 +639,14 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 - Running or paused segments retain their configured duration. New values apply to an idle segment or the next configured segment. Completion events retain actual segment durations; configured auto-start and long-break interval drive transitions.
 - Goal focus minutes sum actual completed work-event durations. Settings and Goals screen target edits persist without resetting progress/baselines/history.
 - Theme System/Light/Dark is persisted and resolved through Appearance/useColorScheme. The app shell, sidebar, and shared cards/inputs/buttons/headers use theme tokens. Older screens still contain static module StyleSheets, so full screen-level dark-theme visual cleanup is explicitly deferred.
-- Notification is a preference only. Stage 20 did not add native delivery because no safe, already-supported RNW packaged notification path was available without a major native rewrite. Tray/startup were not approved requirements. No export, backup, auth, cloud, or onboarding behavior was added.
+- Notification is a preference only. Stage 20 did not add native delivery because no safe, already-supported RNW packaged notification path was available without a major native rewrite. Tray/startup were not approved requirements. No export, backup, auth, or cloud behavior was added.
+
+**Final integration (Stage 21)**
+- Lightweight first-launch `OnboardingScreen` collects timer durations, daily goals, theme, and notification preference; saves through SettingsManager (which applies SessionManager + GoalManager); sets `onboardingCompleted: true`.
+- Fresh installs (empty settings row → defaults with `onboardingCompleted: false`) see the wizard. Existing stored settings missing the flag merge as completed (`true`) so upgrades skip the wizard. Restore Defaults returns `onboardingCompleted: false`, so the wizard appears again by design.
+- `TC_E2E_01` verifies the manager-level workflow: setup → create/edit/delete/complete tasks → start/pause/resume/reset/skip → long-break after 4 work sessions → goals/statistics reflection → settings persist/reload.
+- Final requirements checklist lives at `requirements-checklist.md`.
+- GitHub Release was **not** published from this environment (`gh` CLI not installed). Manual publish steps are in `release-checklist.md`.
 
 **Windows release preparation (Stage 20)**
 - Product version is `1.0.0` / package `1.0.0.0`; display name is FocusFlow; description identifies offline task/focus/goal/statistics behavior.
@@ -616,9 +654,9 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 - Final branding is applied: `assets/branding/focusflow-icon.png` (indigo stopwatch/checkmark tile) is rendered by `scripts/generate-icons.ps1` into all seven package images (square tiles, taskbar/unplated, StoreLogo, wide tile, splash) and a multi-size `FocusFlow.ico`/`small.ico` wired to the executable resource. Template placeholders are fully replaced.
 - `scripts/package-windows.ps1` discovers MSBuild via `vswhere`, restores/builds the solution as Release/x64, forces bundle/Hermes, creates a non-bundle sideload MSIX, accepts `FOCUSFLOW_CERT_THUMBPRINT`/parameter input, or creates a non-exportable local certificate. It exports only the public `FocusFlow.cer`.
 - Supported restore removed stale `reactnativefs` from `windows/FocusFlow/packages.lock.json`; `react-native-turbo-sqlite` remains autolinked.
-- Final build output was `FocusFlow.Package_1.0.0.0_x64.msix`, copied to ignored release asset `artifacts/windows/FocusFlow-v1.0.0-x64/FocusFlow.msix`. Prepared attachments are `FocusFlow.msix`, `FocusFlow.cer`, `FocusFlow-dependencies-x64.zip`, `installation-instructions.md`, and `release-notes.md`.
+- Final Stage 20 build output was `FocusFlow.Package_1.0.0.0_x64.msix`, copied to ignored release asset `artifacts/windows/FocusFlow-v1.0.0-x64/FocusFlow.msix` (SHA-256 `37F8DC8F4D07B7FB4C552E18CB96E2E31CA9D9E587C733AD08E27D4AC412BC7E`). Prepared attachments are `FocusFlow.msix`, `FocusFlow.cer`, `FocusFlow-dependencies-x64.zip`, `installation-instructions.md`, and `release-notes.md`.
 - Build warnings: two NuGet compatibility warnings, generated/native unused-parameter warnings, and Hermes undeclared-global static warnings; 0 errors. No Metro is required.
-- Stage 21 integration and GitHub publication are explicitly pending; no GitHub Release was created.
+- Stage 21 may rebuild the MSIX so the embedded Hermes bundle includes onboarding; checksums must be refreshed after that rebuild.
 
 ### Manual verification summary
 
@@ -635,6 +673,9 @@ Historical defects found during setup / earlier automated testing (and fixed) ar
 | Stage 20 Release runtime | Data-preserving remove/register of generated loose Release layout + AppsFolder launch + UI Automation | Limited pass — package location changed to `bin/x64/Release`; responsive FocusFlow window opened without Metro; Tasks and Settings trees rendered; task `Homework` survived close/reopen; settings 25/5/15/4 were readable. Scripted settings mutation was unreliable and is not claimed. |
 | Stage 20 installed runtime | Installed signed package launch via AppsFolder + UI Automation + close/reopen | Pass — `FocusFlow.exe` ran from `WindowsApps` with no Metro (port 8081 inactive); full accessibility tree exposed all five sections; pre-existing tasks (`Homework`, `Study React Native`, `Clean Room`, `Math Homework`) persisted across the identity transition and a full close/reopen cycle. |
 | Stage 20 final branding | Generated artwork rendered into package images/ICO; rebuilt MSIX inspected | Pass — stopwatch/checkmark tile replaced all template placeholders; rebuilt signed MSIX SHA-256 `37F8DC8F4D07B7FB4C552E18CB96E2E31CA9D9E587C733AD08E27D4AC412BC7E`. |
+| Stage 21 onboarding/E2E | Jest TC_ONBOARD_01–03, TC_E2E_01, `npx tsc --noEmit` | Pass — 15 suites / 116 tests; TypeScript exit 0. |
+| Stage 21 MSIX rebuild | `scripts/package-windows.ps1` with existing `CN=catsr` cert | Pass — 17 warnings / 0 errors; embedded bundle contains Welcome/onboarding; SHA-256 `77EEBDE831570F25836DA5565BB0F61DC3B6C91FFCA356DDF469BF17BA685032`. |
+| Stage 21 release assets | Artifact folder + requirements checklist | Pass — `artifacts/windows/FocusFlow-v1.0.0-x64/FocusFlow.msix` present; `requirements-checklist.md` added; GitHub Release not published (`gh` unavailable). |
 
 Deploy note: close running FocusFlow before redeploy if DLL file lock occurs (DEF-004).
 Stage 14–15 launch note: the first overlapping native compile reported C1041 on `vc145.pdb`; a single retry built successfully. Deployment then encountered the known DLL lock, `tasklist /m ReactNativeTurboSqlite.dll` identified `FocusFlow.exe`, and closing only that process allowed the final build/deploy/start command to exit 0.
@@ -645,7 +686,6 @@ Stage 14–15 launch note: the first overlapping native compile reported C1041 o
 - Durable cross-restart statistics history
 - Notifications / system tray
 - Schema migrations / corrupt DB recovery / large datasets
-- Final integration
 - Full screen-level dark-theme visual cleanup
-- Clean-machine / second-machine MSIX installation test
+- Clean second-machine MSIX installation
 

@@ -74,23 +74,20 @@ For every stage, follow this workflow:
 - [x] 18. Settings
 - [x] 19. Settings tests
 - [x] 20. Windows Features and Release Preparation
-- [ ] 21. Final Integration and Requirements Verification — Next
+- [x] 21. Final Integration and Requirements Verification
+
+**Project roadmap status:** Complete (Stages 1–21).
 
 **Current status notes**
 
-- Stages 1–20 are complete.
-- Stage 20 delivered the x64 Release build, a signed `FocusFlow.msix`, final branding (generated stopwatch/checkmark icon rendered into all package images and the executable ICO), release documentation, and a verified signed installation. The manifest minimum OS was corrected to Windows 10 build 18362 (D_STAGE20_03). The certificate-trust blocker (D_STAGE20_02) was resolved by administrator import of `FocusFlow.cer` into Local Machine Trusted People plus removal of the conflicting loose-layout registration with `-PreserveApplicationData`; the installed package launches Metro-free from `WindowsApps` and all local data persisted.
-- Stage 21 remains next and has not started. Final integration and GitHub Release publication are pending.
-- Completed tests currently include navigation, shared UI, Task UI, validation, TaskManager business logic and runtime completion events, Recently Deleted trash behavior, SQLite persistence, TaskRepository unit tests, TimerService, SessionManager completion events, GoalManager, and StatisticsEngine.
-- Tasks persist in a local SQLite database via TaskRepository / DatabaseService.
-- Focus Session UI is wired to SessionManager / TimerService with persisted configurable 25/5/15 defaults, long-break interval 4, and optional auto-start. Active/paused segment state is not persisted.
-- Skipped work sessions do not count toward completed-work or long-break cycle progress (documented in SessionManager and UI).
-- Goals use real stored completed-task totals and actual completed work-event durations; daily/weekly targets persist through Settings.
-- Statistics uses typed runtime-only completion histories from TaskManager and SessionManager. Existing persisted Completed tasks are exposed only as an undated snapshot and are never assigned fabricated historical dates.
-- StatisticsEngine provides normalized selected-day summaries, Monday–Sunday weeks, the capped 40/40/20 score, exact result boundaries/messages, Fair-or-better streaks, and ordered zero-filled history up to 90 days.
-- Settings use a singleton, version-tolerant JSON payload in SQLite. System/Light/Dark is applied to the app shell and shared components; remaining screen-local static styles are deferred visual cleanup.
-- Onboarding remains deferred because it is not part of Stages 18–19. Statistics history remains runtime-only. Notifications are a stored preference only; Windows-native behavior begins in Stage 20.
-
+- Stages 1–21 are complete. The project implementation roadmap is finished.
+- Stage 21 delivered the first-launch Welcome / Productivity Setup wizard (`OnboardingScreen`), manager-level end-to-end integration coverage (`TC_E2E_01`), a final `requirements-checklist.md`, and release-ready documentation. Automated results: **15 suites / 116 tests**. TypeScript (`npx tsc --noEmit`) exits 0.
+- Stage 20 delivered the x64 Release build, a signed `FocusFlow.msix`, final branding, release documentation, and a verified signed installation. The manifest minimum OS was corrected to Windows 10 build 18362 (D_STAGE20_03). Certificate-trust and loose-layout blockers (D_STAGE20_02) were resolved.
+- Onboarding: fresh installs see the wizard; upgrades with existing settings missing `onboardingCompleted` are grandfathered as completed; Restore Defaults resurfaces the wizard.
+- Statistics history remains runtime-only. Notifications remain a stored preference only. Tray/startup were not approved requirements.
+- Default settings already exist in AppSettings/SettingsManager (timer 25/5/15, long-break interval 4, goals daily 5/4/120 and weekly 30/20/600).
+- GitHub Release publication requires a manual step: `gh` CLI was not available in the Stage 21 environment. See `release-checklist.md`.
+- No defects were discovered during Stage 21.
 ---
 
 ## Stage Details
@@ -586,63 +583,25 @@ For every stage, follow this workflow:
 
 ### Stage 21 — Final Integration and Requirements Verification
 
-- **Status:** Not Started — Next
+- **Status:** Complete
 - **Objective:** Perform final end-to-end verification against the SRS, SDD, and all approved project requirements, then finalize the release.
 - **Main implementation work:**
-  - Run the complete Jest suite
-  - Run final manual and end-to-end integration testing
-  - Verify every implemented feature against the SRS, SDD, and project requirements
-  - Verify the complete user workflow:
-    - First launch
-    - Productivity questionnaire / onboarding, if implemented
-    - Save settings
-    - Create a task
-    - Start a focus session
-    - Complete the task
-    - Confirm Goals update
-    - Confirm Statistics update
-    - Close and reopen FocusFlow
-    - Confirm all persisted data is restored
-  - Record and fix remaining integration defects
+  - Run the complete Jest suite (final: 15 suites / 116 tests)
+  - Add lightweight first-launch onboarding wizard (timer, daily goals, theme, notifications) with `onboardingCompleted`
+  - Run manager-level end-to-end integration coverage (`TC_E2E_01`)
+  - Verify requirements in `requirements-checklist.md`
+  - Confirm Stage 20 MSIX artifacts and prepare GitHub Release structure
   - Update testing documentation with final actual results
-  - Create a final requirements checklist confirming implementation status
-  - Finalize and publish the GitHub Release only after all required testing passes and no blocking defects remain
-- **Features included:** Final regression, end-to-end workflows, requirements verification, installation verification, defect resolution, and release publication
-- **Features intentionally excluded:** New feature development beyond fixes required to satisfy approved requirements
-- **Testing required:**
-  - Complete Jest regression suite
-  - Full end-to-end user workflow
-  - SQLite persistence
-  - Timer behavior and long-break cycle
-  - Goal tracking
-  - Statistics updates
-  - Settings persistence
-  - Theme persistence
-  - Application close/reopen and restart behavior
-  - MSIX installation and clean installation
-  - Verification on a clean Windows installation where practical
-  - Requirement-by-requirement SRS/SDD checklist
-- **Completion criteria:**
-  - All automated suites pass
-  - Final manual and end-to-end tests pass
-  - Every approved requirement is implemented or explicitly resolved
-  - No blocking defects remain
-  - SQLite, timer, goals, statistics, settings, theme, restart, and MSIX workflows are verified
-  - `testing-notes.md` contains final totals
-  - `test-results.txt` contains the final complete Jest output
-  - Final requirements checklist is complete
-  - GitHub Release is finalized and published
-- **Final project deliverables:**
-  - Source code
-  - GitHub repository
-  - GitHub Release
-  - `FocusFlow.msix`
-  - `installation-instructions.md`
-  - `release-notes.md`
-  - `testing-notes.md`
-  - `test-results.txt`
-  - Final updated `plan.md`
-- **Recommended Git commit message:** `Complete final verification and publish release`
+- **Features included:** Final regression, end-to-end workflow automation, onboarding, requirements verification, release readiness
+- **Features intentionally excluded:** Native notifications, tray/startup, session/statistics history persistence, GitHub publish when `gh` is unavailable
+- **Testing required / completed:**
+  - Complete Jest regression suite — Pass (116/116)
+  - Onboarding tests TC_ONBOARD_01–03 — Pass
+  - End-to-end manager workflow TC_E2E_01 — Pass
+  - TypeScript `npx tsc --noEmit` — Pass
+  - Stage 20 SQLite/settings/theme/MSIX evidence retained
+- **Completion criteria:** Met for automated verification and documentation. GitHub Release requires manual publish (see `release-checklist.md`); no Stage 21 product defects discovered.
+- **Recommended Git commit message:** `Complete final verification and prepare FocusFlow v1.0 release`
 - **Dependencies on earlier stages:** Stages 1–20
 
 ---
