@@ -45,4 +45,5 @@ Latest Stage 21 baseline: **15 suites / 116 tests**.
 - First launch: Welcome / Productivity Setup wizard (timer, daily goals, theme, notifications)
 - Docs: `documentation/plan.md`, `documentation/testing-notes.md`, `requirements-checklist.md`
 - Release: `release-notes.md`, `installation-instructions.md`, `release-checklist.md`
-- Packaged installer artifacts (gitignored): `artifacts/windows/FocusFlow-v1.0.0-x64/`
+- Packaged installer build outputs (gitignored): `artifacts/windows/FocusFlow-v1.0.0-x64/`
+- v1.0 release assets (tracked): `Releases/FocusFlow v1.0/` (`FocusFlow.msix`, installation instructions, release notes)

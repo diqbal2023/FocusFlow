@@ -84,6 +84,9 @@ windows/**/*.msix
 windows/**/*.msixbundle
 artifacts/
 
+# Published release packages under Releases/ are intentionally trackable
+!Releases/**/*.msix
+
 # Signing material and local release credentials
 *.cer
 *.pfx
